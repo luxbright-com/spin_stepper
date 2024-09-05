@@ -11,15 +11,14 @@ class SpinChain:
             spi_transfer: Callable[[List[int]], List[int]] | None = None
     ) -> None:
         """
-        if different from hardware SPI CS pin
-        :total_devices: Total number of devices in chain
+        If different from hardware SPI CS pin
+        :total_devices: Total number of devices in the chain.
         :spi_select: A SPI bus, device pair, e.g. (0, 0)
         :spi_transfer: A SPI transfer function that behaves like
             spidev.xfer2.
             It should write a list of bytes as ints with MSB first,
             while correctly latching using the chip select pins
             Then return an equal-length list of bytes as ints from MISO
-
         """
         if total_devices < 1:
             raise RuntimeError("total_devices must be greater than 0")
@@ -27,7 +26,7 @@ class SpinChain:
         if spi_select is None and spi_transfer is None:
             raise RuntimeError("spi_select or spi_transfer must be set")
 
-        self._total_devices: Final = total_devices
+        self._total_devices: int = total_devices
 
         # {{{ SPI setup
         if spi_transfer is not None:
@@ -35,7 +34,7 @@ class SpinChain:
 
         elif spi_select is not None:
             import spidev
-            self._spi: Final = spidev.SpiDev()
+            self._spi = spidev.SpiDev()
 
             bus, device = spi_select
             self._spi.open(bus, device)

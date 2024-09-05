@@ -74,12 +74,12 @@ def to_int(byte_array: list[int]) -> int:
     return result
 
 
-class Direction(enum.IntEnum):
+class SpinDirection(enum.IntEnum):
     Reverse = 0
     Forward = 1
 
 
-class Register(enum.IntEnum):
+class SpinRegister(enum.IntEnum):
     """
     RegisterAddresses
     """
@@ -116,37 +116,37 @@ class Register(enum.IntEnum):
         :return: Register size.
         """
         register_size: dict[int, int] = {
-            Register.ACC.value: 2,
-            Register.ADC_OUT.value: 1,
-            Register.ALARM_EN.value: 1,
-            Register.DEC.value: 2,
-            Register.CONFIG.value: 2,
-            Register.K_THERM.value: 1,
-            Register.KVAL_ACC.value: 1,
-            Register.KVAL_DEC.value: 1,
-            Register.KVAL_HOLD.value: 1,
-            Register.KVAL_RUN.value: 1,
-            Register.MARK.value: 3,
-            Register.ABS_POS.value: 3,
-            Register.EL_POS.value: 2,
-            Register.FN_SLP_ACC.value: 1,
-            Register.FN_SLP_DEC.value: 1,
-            Register.ST_SLP.value: 1,
-            Register.SPEED.value: 3,
-            Register.FS_SPEED.value: 2,
-            Register.INT_SPEED.value: 2,
-            Register.MAX_SPEED.value: 2,
-            Register.MIN_SPEED.value: 2,
-            Register.STATUS.value: 2,
-            Register.STEP_MODE.value: 1,
-            Register.OCD_TH.value: 1,
-            Register.STALL_TH.value: 1
+            SpinRegister.ACC.value: 2,
+            SpinRegister.ADC_OUT.value: 1,
+            SpinRegister.ALARM_EN.value: 1,
+            SpinRegister.DEC.value: 2,
+            SpinRegister.CONFIG.value: 2,
+            SpinRegister.K_THERM.value: 1,
+            SpinRegister.KVAL_ACC.value: 1,
+            SpinRegister.KVAL_DEC.value: 1,
+            SpinRegister.KVAL_HOLD.value: 1,
+            SpinRegister.KVAL_RUN.value: 1,
+            SpinRegister.MARK.value: 3,
+            SpinRegister.ABS_POS.value: 3,
+            SpinRegister.EL_POS.value: 2,
+            SpinRegister.FN_SLP_ACC.value: 1,
+            SpinRegister.FN_SLP_DEC.value: 1,
+            SpinRegister.ST_SLP.value: 1,
+            SpinRegister.SPEED.value: 3,
+            SpinRegister.FS_SPEED.value: 2,
+            SpinRegister.INT_SPEED.value: 2,
+            SpinRegister.MAX_SPEED.value: 2,
+            SpinRegister.MIN_SPEED.value: 2,
+            SpinRegister.STATUS.value: 2,
+            SpinRegister.STEP_MODE.value: 1,
+            SpinRegister.OCD_TH.value: 1,
+            SpinRegister.STALL_TH.value: 1
         }
 
         return register_size[self.value]
 
 
-class Command(enum.IntEnum):
+class SpinCommand(enum.IntEnum):
     GoHome = 0x70
     GoMark = 0x78
     GoTo = 0x60
@@ -174,27 +174,27 @@ class Command(enum.IntEnum):
         :return: Register size.
         """
         command_size: dict[int, int] = {
-            Command.GoHome.value: 0,
-            Command.GoMark.value: 0,
-            Command.GoTo.value: 3,
-            Command.GoToDir.value: 3,
-            Command.GoUntil.value: 3,
-            Command.HiZHard.value: 0,
-            Command.HiZSoft.value: 0,
-            Command.Nop.value: 0,
-            Command.Move.value: 3,
-            Command.ReleaseSw.value: 0,
-            Command.ResetDevice.value: 0,
-            Command.ResetPos.value: 0,
-            Command.Run.value: 3,
-            Command.StatusGet.value: 2,
-            Command.StepClock.value: 0,
-            Command.HardStop.value: 0,
-            Command.SoftStop.value: 0
+            SpinCommand.GoHome.value: 0,
+            SpinCommand.GoMark.value: 0,
+            SpinCommand.GoTo.value: 3,
+            SpinCommand.GoToDir.value: 3,
+            SpinCommand.GoUntil.value: 3,
+            SpinCommand.HiZHard.value: 0,
+            SpinCommand.HiZSoft.value: 0,
+            SpinCommand.Nop.value: 0,
+            SpinCommand.Move.value: 3,
+            SpinCommand.ReleaseSw.value: 0,
+            SpinCommand.ResetDevice.value: 0,
+            SpinCommand.ResetPos.value: 0,
+            SpinCommand.Run.value: 3,
+            SpinCommand.StatusGet.value: 2,
+            SpinCommand.StepClock.value: 0,
+            SpinCommand.HardStop.value: 0,
+            SpinCommand.SoftStop.value: 0
         }
         return command_size[self.value]
 
-    def __or__(self, register: Register) -> int:
+    def __or__(self, register: SpinRegister) -> int:
         return self.value | register.value
 
 
@@ -245,67 +245,7 @@ class SpinDevice:
         self._total_devices: int = total_devices
         self._spi_transfer: callable = spi_transfer
 
-        self._direction = Direction.Forward.value
-
-    def _write(self, data: int) -> int:
-        """Write a single byte to the device.
-
-        :data: A single byte representing a command or value
-        :return: Returns response byte
-        """
-        if data < 0x00 or data > 0xFF:
-            raise ValueError('Data must be between 0x00 and 0xFF')
-
-        buffer = [Command.Nop.value] * self._total_devices
-        buffer[self._position] = data
-
-        response = self._spi_transfer(buffer)
-
-        return response[self._position]
-
-    def _writeMultiple(self, data: list[int]) -> int:
-        """
-        Write each byte in a list to device.
-        Used to combine calls to _write.
-
-        :data: List of single byte values to send
-        :return: Response bytes as int
-        """
-        response = [self._write(data_byte) for data_byte in data]
-        return to_int(response)
-
-    def _writeCommand(
-            self,
-            command: Command,
-            option: int | None = None,
-            payload: int | None = None
-    ) -> int:
-        """Write command to device with payload (if any)
-
-        :command: Command to write
-        :option: Option to merge with command byte
-        :payload: Payload (if any)
-        :payload_size: Payload size in bytes
-        :return: Response bytes as int
-        """
-        if option:
-            response = self._write(command.value | option)
-        else:
-            response = self._write(command.value)
-
-        if payload is None:
-            return response
-
-        # send / get payload
-        if command == Command.ParamSet:
-            register = Register(option)
-            payload_size = register.size
-        else:
-            payload_size = command.size
-
-        return self._writeMultiple(
-            to_byte_array_with_length(payload, payload_size)
-        )
+        self._direction = SpinDirection.Forward.value
 
     @property
     def abs_pos(self) -> int:
@@ -314,7 +254,7 @@ class SpinDevice:
         The resolution is in agreement with the selected step size.
         :return: Absolute position register.
         """
-        return twos_complement(self.get_register(Register.ABS_POS), 22)
+        return twos_complement(self.get_register(SpinRegister.ABS_POS), 22)
 
     @property
     def mark(self) -> int:
@@ -323,7 +263,7 @@ class SpinDevice:
         The resolution is in agreement with the selected step size.
         :return: The mark register.
         """
-        return twos_complement(self.get_register(Register.MARK), 22)
+        return twos_complement(self.get_register(SpinRegister.MARK), 22)
 
     @mark.setter
     def mark(self, pos: int) -> None:
@@ -333,7 +273,7 @@ class SpinDevice:
         :return: The mark register.
         """
         value = twos_complement(pos, 22)
-        self.set_register(Register.MARK, value)
+        self.set_register(SpinRegister.MARK, value)
 
     @property
     def speed(self) -> float:
@@ -341,7 +281,7 @@ class SpinDevice:
         Returns current motor speed in pulses per second.
         :return: Current motor speed in pulses per second.
         """
-        _speed = self.get_register(Register.SPEED)
+        _speed = self.get_register(SpinRegister.SPEED)
         _k = 2 ** -28
         return _speed * self._TICK_SECONDS / _k
 
@@ -350,8 +290,8 @@ class SpinDevice:
         Get the speed min and max limits of the device.
         :return: The min_speed, max_speed limits
         """
-        min_speed = self.get_register(Register.MIN_SPEED) * self._MIN_SPEED_K / self._TICK_SECONDS
-        max_speed = self.get_register(Register.MAX_SPEED) * self._MAX_SPEED_K / self._TICK_SECONDS
+        min_speed = self.get_register(SpinRegister.MIN_SPEED) * self._MIN_SPEED_K / self._TICK_SECONDS
+        max_speed = self.get_register(SpinRegister.MAX_SPEED) * self._MAX_SPEED_K / self._TICK_SECONDS
         return min_speed, max_speed
 
     def set_speed_limits(
@@ -365,18 +305,18 @@ class SpinDevice:
         :param max_speed: Max_speed in pulses/s
         """
         if min_speed:
-            self.set_register(Register.MIN_SPEED, int(min_speed * self._TICK_SECONDS / self._MIN_SPEED_K))
+            self.set_register(SpinRegister.MIN_SPEED, int(min_speed * self._TICK_SECONDS / self._MIN_SPEED_K))
 
         if max_speed:
-            self.set_register(Register.MAX_SPEED, int(max_speed * self._TICK_SECONDS / self._MAX_SPEED_K))
+            self.set_register(SpinRegister.MAX_SPEED, int(max_speed * self._TICK_SECONDS / self._MAX_SPEED_K))
 
     def get_acceleration(self) -> (float, float):
         """
         Get the deceleration and acceleration of the device in steps/s2.
         :return: Acceleration and deceleration
         """
-        dec = self.get_register(Register.DEC) * self._ACC_K / self._TICK_SECONDS ** 2
-        acc = self.get_register(Register.ACC) * self._ACC_K / self._TICK_SECONDS ** 2
+        dec = self.get_register(SpinRegister.DEC) * self._ACC_K / self._TICK_SECONDS ** 2
+        acc = self.get_register(SpinRegister.ACC) * self._ACC_K / self._TICK_SECONDS ** 2
         return dec, acc
 
     def set_acceleration(
@@ -390,9 +330,9 @@ class SpinDevice:
         :param acc: Acceleration in steps/s2
         """
         if dec:
-            self.set_register(Register.DEC, int(dec * self._TICK_SECONDS ** 2 / self._ACC_K))
+            self.set_register(SpinRegister.DEC, int(dec * self._TICK_SECONDS ** 2 / self._ACC_K))
         if acc:
-            self.set_register(Register.ACC, int(acc * self._TICK_SECONDS ** 2 / self._ACC_K))
+            self.set_register(SpinRegister.ACC, int(acc * self._TICK_SECONDS ** 2 / self._ACC_K))
 
     def get_fs_spd(self) -> float:
         """
@@ -402,7 +342,7 @@ class SpinDevice:
         Its value is expressed in step/tick.
         :return: FS_SPD
         """
-        return (self.get_register(Register.FS_SPEED) + 0.5) * self._MAX_SPEED_K / self._TICK_SECONDS
+        return (self.get_register(SpinRegister.FS_SPEED) + 0.5) * self._MAX_SPEED_K / self._TICK_SECONDS
 
     def set_fs_spd(self, value: float) -> None:
         """
@@ -413,7 +353,7 @@ class SpinDevice:
         :return: None
         """
         v = (value - 0.5) * self._TICK_SECONDS / self._MAX_SPEED_K
-        self.set_register(Register.FS_SPEED, int(v))
+        self.set_register(SpinRegister.FS_SPEED, int(v))
 
     def get_kval(self) -> (float, float, float, float):
         """
@@ -431,10 +371,10 @@ class SpinDevice:
         :return: KVAL_HOLD, KVAL_RUN, KVAL_ACC, KVAL_DEC
         """
         _k = 256.0
-        kval_hold = self.get_register(Register.KVAL_HOLD) / _k
-        kval_run = self.get_register(Register.KVAL_RUN) / _k
-        kval_acc = self.get_register(Register.KVAL_ACC) / _k
-        kval_dec = self.get_register(Register.KVAL_DEC) / _k
+        kval_hold = self.get_register(SpinRegister.KVAL_HOLD) / _k
+        kval_run = self.get_register(SpinRegister.KVAL_RUN) / _k
+        kval_acc = self.get_register(SpinRegister.KVAL_ACC) / _k
+        kval_dec = self.get_register(SpinRegister.KVAL_DEC) / _k
         return kval_hold, kval_run, kval_acc, kval_dec
 
     def set_kval(
@@ -459,13 +399,13 @@ class SpinDevice:
         """
         _k = 256.0
         if kval_hold:
-            self.set_register(Register.KVAL_HOLD, int(kval_hold * _k))
+            self.set_register(SpinRegister.KVAL_HOLD, int(kval_hold * _k))
         if kval_run:
-            self.set_register(Register.KVAL_RUN, int(kval_run * _k))
+            self.set_register(SpinRegister.KVAL_RUN, int(kval_run * _k))
         if kval_acc:
-            self.set_register(Register.KVAL_ACC, int(kval_acc * _k))
+            self.set_register(SpinRegister.KVAL_ACC, int(kval_acc * _k))
         if kval_dec:
-            self.set_register(Register.KVAL_DEC, int(kval_dec * _k))
+            self.set_register(SpinRegister.KVAL_DEC, int(kval_dec * _k))
 
     def get_bemf(self) -> (float, float, float, float):
         """
@@ -484,10 +424,10 @@ class SpinDevice:
         """
         _speed_k = 2 ** -26
         _slope_k = 0.0015
-        int_speed = self.get_register(Register.INT_SPEED) * _speed_k / self._TICK_SECONDS
-        st_slp = self.get_register(Register.ST_SLP) * _slope_k
-        fn_slp_acc = self.get_register(Register.FN_SLP_ACC) * _slope_k
-        fn_slp_dec = self.get_register(Register.FN_SLP_DEC) * _slope_k
+        int_speed = self.get_register(SpinRegister.INT_SPEED) * _speed_k / self._TICK_SECONDS
+        st_slp = self.get_register(SpinRegister.ST_SLP) * _slope_k
+        fn_slp_acc = self.get_register(SpinRegister.FN_SLP_ACC) * _slope_k
+        fn_slp_dec = self.get_register(SpinRegister.FN_SLP_DEC) * _slope_k
         return int_speed, st_slp, fn_slp_acc, fn_slp_dec
 
     def set_bemf(
@@ -516,13 +456,13 @@ class SpinDevice:
         _slope_k = 0.0015
 
         if int_speed:
-            self.set_register(Register.INT_SPEED, int(int_speed / _speed_k * self._TICK_SECONDS))
+            self.set_register(SpinRegister.INT_SPEED, int(int_speed / _speed_k * self._TICK_SECONDS))
         if st_slp:
-            self.set_register(Register.ST_SLP, int(st_slp / _slope_k))
+            self.set_register(SpinRegister.ST_SLP, int(st_slp / _slope_k))
         if fn_slp_acc:
-            self.set_register(Register.FN_SLP_ACC, int(fn_slp_acc / _slope_k))
+            self.set_register(SpinRegister.FN_SLP_ACC, int(fn_slp_acc / _slope_k))
         if fn_slp_dec:
-            self.set_register(Register.FN_SLP_DEC, int(fn_slp_dec / _slope_k))
+            self.set_register(SpinRegister.FN_SLP_DEC, int(fn_slp_dec / _slope_k))
 
     def get_k_therm(self) -> float:
         """
@@ -530,7 +470,7 @@ class SpinDevice:
         :return: K_THERM
         """
         _k = 0.03125
-        return self.get_register(Register.K_THERM) * _k + 1.0
+        return self.get_register(SpinRegister.K_THERM) * _k + 1.0
 
     def set_k_therm(self, k_therm: float) -> None:
         """
@@ -539,7 +479,7 @@ class SpinDevice:
         """
         _k = 0.03125
         value = int((k_therm - 1.0) / _k)
-        self.set_register(Register.K_THERM, value)
+        self.set_register(SpinRegister.K_THERM, value)
 
     @property
     def adc_out(self) -> float:
@@ -549,7 +489,7 @@ class SpinDevice:
         pin voltage; the result is available even if the supply voltage compensation is disabled.
         :return: ADC_OUT as a value between 0.0 and 1.0 in 5-bit resolution.
         """
-        return self.get_register(Register.ADC_OUT) / 32.0
+        return self.get_register(SpinRegister.ADC_OUT) / 32.0
 
     def get_ocd_th(self) -> float:
         """
@@ -559,7 +499,7 @@ class SpinDevice:
         :return: OCD_TH in A
         """
         _k = 0.375
-        return self.get_register(Register.OCD_TH) * _k + _k
+        return self.get_register(SpinRegister.OCD_TH) * _k + _k
 
     def set_ocd_th(self, ocd_th: float) -> None:
         """
@@ -570,7 +510,7 @@ class SpinDevice:
         :return: None
         """
         _k = 0.375
-        self.set_register(Register.OCD_TH, int((ocd_th - _k) / _k))
+        self.set_register(SpinRegister.OCD_TH, int((ocd_th - _k) / _k))
 
     def get_stall_th(self) -> float:
         """
@@ -580,7 +520,7 @@ class SpinDevice:
         :return: STALL_TH in A
         """
         _k = 0.03125
-        return self.get_register(Register.STALL_TH) * _k + _k
+        return self.get_register(SpinRegister.STALL_TH) * _k + _k
 
     def set_stall_th(self, stall_th: float) -> None:
         """
@@ -591,14 +531,14 @@ class SpinDevice:
         :return: None
         """
         _k = 0.03125
-        self.set_register(Register.STALL_TH, int((stall_th - _k) / _k))
+        self.set_register(SpinRegister.STALL_TH, int((stall_th - _k) / _k))
 
     def get_micro_step(self) -> int:
         """
         Read the low part of the STEP_MODE register.
 
         """
-        return 2 ** (self.get_register(Register.STEP_MODE) & 0x07)
+        return 2 ** (self.get_register(SpinRegister.STEP_MODE) & 0x07)
 
     def set_micro_step(self, micro_step: int) -> None:
         """
@@ -607,7 +547,7 @@ class SpinDevice:
         """
         try:
             step_value = {1: 0, 2: 1, 4: 2, 8: 3, 16: 4, 32: 5, 64: 6, 128: 7}
-            self.set_register(Register.STEP_MODE, step_value[micro_step])
+            self.set_register(SpinRegister.STEP_MODE, step_value[micro_step])
         except KeyError:
             raise ValueError("Invalid micro_step value. Must be 1, 2, 4, 8, 16, 32, 64 or 128")
 
@@ -616,24 +556,24 @@ class SpinDevice:
         The ResetPos command resets the ABS_POS register to zero.
         The zero position is also defined as HOME position
         """
-        self._writeCommand(Command.ResetPos)
+        self._writeCommand(SpinCommand.ResetPos)
 
     def reset_device(self) -> None:
         """
         Reset device.
         :return: None
         """
-        self._writeCommand(Command.ResetDevice)
+        self._writeCommand(SpinCommand.ResetDevice)
 
-    def set_register(self, register: Register, value: int) -> None:
+    def set_register(self, register: SpinRegister, value: int) -> None:
         """
         Set the specified register to the given value
         :register: The register location
         :value: Value register should be set to
         """
-        self._writeCommand(Command.ParamSet, option=register, payload=value)
+        self._writeCommand(SpinCommand.ParamSet, option=register, payload=value)
 
-    def get_register(self, register: Register) -> int:
+    def get_register(self, register: SpinRegister) -> int:
         """
         Fetches a register's contents and returns the current value
 
@@ -641,41 +581,41 @@ class SpinDevice:
         :returns: Value of specified register
 
         """
-        self._writeCommand(Command.ParamGet, option=register)
+        self._writeCommand(SpinCommand.ParamGet, option=register)
         return self._writeMultiple([0x00] * register.size)
 
     def go_until(
             self,
             set_mark: bool = False,
-            direction: Direction | None = None
+            direction: SpinDirection | None = None
     ) -> None:
         """
         Go until switch turn on event.
         This is used to set the home or mark positions
         """
-        if isinstance(direction, Direction):
+        if isinstance(direction, SpinDirection):
             self._direction = direction
         act = SET_MARK_FLAG if set_mark else 0
         option = act | self._direction
-        self._writeCommand(Command.GoUntil, option=option)
+        self._writeCommand(SpinCommand.GoUntil, option=option)
 
     def release_switch(
             self,
             set_mark: bool = False,
-            direction: Direction | None = None
+            direction: SpinDirection | None = None
 
     ) -> None:
         """
         Move until the switch is released.
         This is used in combination with the go_until to get very accurate home or mark positions
         """
-        if isinstance(direction, Direction):
+        if isinstance(direction, SpinDirection):
             self._direction = direction
         act = SET_MARK_FLAG if set_mark else 0
         option = act | self._direction
-        self._writeCommand(Command.ReleaseSw, option=option)
+        self._writeCommand(SpinCommand.ReleaseSw, option=option)
 
-    def move(self, steps: int, direction: Direction | None = None) -> None:
+    def move(self, steps: int, direction: SpinDirection | None = None) -> None:
         """
         Move motor n steps
         :steps: Number of (micro)steps to take
@@ -685,9 +625,9 @@ class SpinDevice:
         if steps > self.max_steps:
             raise ValueError('Steps cannot be greater than MaxSteps')
 
-        if isinstance(direction, Direction):
+        if isinstance(direction, SpinDirection):
             self._direction = direction
-        self._writeCommand(Command.Move, option=self._direction, payload=steps)
+        self._writeCommand(SpinCommand.Move, option=self._direction, payload=steps)
 
     def go_to(self, position: int) -> None:
         """
@@ -699,7 +639,7 @@ class SpinDevice:
         :param position: Absolute position relative to ABS_POS
         :return: None
         """
-        self._writeCommand(Command.GoTo, payload=position)
+        self._writeCommand(SpinCommand.GoTo, payload=position)
 
     def go_home(self) -> None:
         """
@@ -708,15 +648,15 @@ class SpinDevice:
         This command can be given only when the previous motion command has been completed (BUSY flag released).
         :return: None
         """
-        self._writeCommand(Command.GoHome)
+        self._writeCommand(SpinCommand.GoHome)
 
     def go_mark(self) -> None:
         """
         The GoMark command produces a motion to the MARK position performing the minimum path.
         """
-        self._writeCommand(Command.GoMark)
+        self._writeCommand(SpinCommand.GoMark)
 
-    def run(self, speed: float, direction: Direction | None = None) -> None:
+    def run(self, speed: float, direction: SpinDirection | None = None) -> None:
         """
         Run the motor at the given steps per second
         :param speed: Full steps per second up to 15 625.
@@ -726,22 +666,22 @@ class SpinDevice:
         if speed < 0.0 or speed > self.max_steps_per_second:
             raise ValueError('Speed must be between 0.0 and max_steps_per_second')
 
-        if isinstance(direction, Direction):
+        if isinstance(direction, SpinDirection):
             self._direction = direction
 
         _k = 2 ** -28
-        self._writeCommand(Command.Run, option=self._direction, payload=int(speed * _k / self._TICK_SECONDS))
+        self._writeCommand(SpinCommand.Run, option=self._direction, payload=int(speed * _k / self._TICK_SECONDS))
 
     @property
-    def direction(self) -> Direction:
+    def direction(self) -> SpinDirection:
         """
         Get motor direction.
         :return: Motor direction
         """
-        return Direction(self._direction)
+        return SpinDirection(self._direction)
 
     @direction.setter
-    def direction(self, direction: Direction) -> None:
+    def direction(self, direction: SpinDirection) -> None:
         """
         Set motor direction.
         :param direction: Direction to set motor to.
@@ -753,25 +693,25 @@ class SpinDevice:
         Stop motors abruptly, release holding current.
         :return: None
         """
-        self._writeCommand(Command.HiZHard)
+        self._writeCommand(SpinCommand.HiZHard)
 
     def soft_hiz(self) -> None:
         """
         Stop motors, release holding current.
         """
-        self._writeCommand(Command.HiZSoft)
+        self._writeCommand(SpinCommand.HiZSoft)
 
     def hard_stop(self) -> None:
         """Stop motors abruptly, maintain holding current
 
         """
-        self._writeCommand(Command.HardStop)
+        self._writeCommand(SpinCommand.HardStop)
 
     def soft_stop(self) -> None:
         """
         Stop motors, maintain holding current
         """
-        self._writeCommand(Command.SoftStop)
+        self._writeCommand(SpinCommand.SoftStop)
 
     def get_status(self) -> SpinStatus:
         """Get status register
@@ -780,8 +720,8 @@ class SpinDevice:
         :returns: Status enum.
 
         """
-        self._writeCommand(Command.StatusGet)
-        status = self._writeMultiple([0x00] * Command.StatusGet.size)
+        self._writeCommand(SpinCommand.StatusGet)
+        status = self._writeMultiple([0x00] * SpinCommand.StatusGet.size)
         return SpinStatus(status)
 
     def is_busy(self) -> bool:
@@ -793,7 +733,7 @@ class SpinDevice:
         """
         # We use getRegister instead of getStatus
         # So as not to clear any warning flags
-        status = SpinStatus(self.get_register(Register.STATUS))
+        status = SpinStatus(self.get_register(SpinRegister.STATUS))
         return SpinStatus.NotBusy not in status
 
     def get_pretty_status(self) -> str:
@@ -801,7 +741,7 @@ class SpinDevice:
         Return a str representing the status.
         :returns: A str representing the status
         """
-        status = SpinStatus(self.get_register(Register.STATUS))
+        status = SpinStatus(self.get_register(SpinRegister.STATUS))
         strings = []
         if SpinStatus.NotStepLossA not in status and SpinStatus.NotStepLossB not in status:
             strings.append('!STEP LOSS')
@@ -844,3 +784,64 @@ class SpinDevice:
             strings.append("HiZ False")
 
         return '\n'.join(strings)
+
+
+    def _write(self, data: int) -> int:
+        """Write a single byte to the device.
+
+        :data: A single byte representing a command or value
+        :return: Returns response byte
+        """
+        if data < 0x00 or data > 0xFF:
+            raise ValueError('Data must be between 0x00 and 0xFF')
+
+        buffer = [SpinCommand.Nop.value] * self._total_devices
+        buffer[self._position] = data
+
+        response = self._spi_transfer(buffer)
+
+        return response[self._position]
+
+    def _writeMultiple(self, data: list[int]) -> int:
+        """
+        Write each byte in a list to device.
+        Used to combine calls to _write.
+
+        :data: List of single byte values to send
+        :return: Response bytes as int
+        """
+        response = [self._write(data_byte) for data_byte in data]
+        return to_int(response)
+
+    def _writeCommand(
+            self,
+            command: SpinCommand,
+            option: int | None = None,
+            payload: int | None = None
+    ) -> int:
+        """Write command to device with payload (if any)
+
+        :command: Command to write
+        :option: Option to merge with command byte
+        :payload: Payload (if any)
+        :payload_size: Payload size in bytes
+        :return: Response bytes as int
+        """
+        if option:
+            response = self._write(command.value | option)
+        else:
+            response = self._write(command.value)
+
+        if payload is None:
+            return response
+
+        # send / get payload
+        if command == SpinCommand.ParamSet:
+            register = SpinRegister(option)
+            payload_size = register.size
+        else:
+            payload_size = command.size
+
+        return self._writeMultiple(
+            to_byte_array_with_length(payload, payload_size)
+        )

@@ -25,6 +25,9 @@ dependencies = [
 tests = [
     "pytest > 8.0"
 ]
+dev = [
+    "ruff"
+]
 
 [build-system]
 requires = ["setuptools >= 70.0", "wheel"]

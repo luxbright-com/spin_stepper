@@ -33,27 +33,27 @@ def motor() -> sp.SpinDevice:
 
 
 def test_register_enum():
-    assert sp.Register.ACC.value == 0x05
-    assert sp.Register.ACC.size == 2
+    assert sp.SpinRegister.ACC.value == 0x05
+    assert sp.SpinRegister.ACC.size == 2
 
-    assert sp.Register.STALL_TH.value == 0x14
-    assert sp.Register.STALL_TH.size == 1
+    assert sp.SpinRegister.STALL_TH.value == 0x14
+    assert sp.SpinRegister.STALL_TH.size == 1
 
 
 def test_get_register(motor: sp.SpinDevice):
-    assert 0 < motor.get_register(sp.Register.ADC_OUT) < 128
-    print(f"\nADC out:{motor.get_register(sp.Register.ADC_OUT)}\n")
+    assert 0 < motor.get_register(sp.SpinRegister.ADC_OUT) < 128
+    print(f"\nADC out:{motor.get_register(sp.SpinRegister.ADC_OUT)}\n")
 
-    assert 0 < motor.get_register(sp.Register.STEP_MODE) < 9
-    print(f"StepMode:{motor.get_register(sp.Register.STEP_MODE)}\n")
+    assert 0 < motor.get_register(sp.SpinRegister.STEP_MODE) < 9
+    print(f"StepMode:{motor.get_register(sp.SpinRegister.STEP_MODE)}\n")
 
 
 def test_set_register(motor: sp.SpinDevice):
-    old_step_mode = motor.get_register(sp.Register.STEP_MODE)
-    motor.set_register(sp.Register.STEP_MODE, 3)
-    assert motor.get_register(sp.Register.STEP_MODE) == 3
-    motor.set_register(sp.Register.STEP_MODE, old_step_mode)
-    assert motor.get_register(sp.Register.STEP_MODE) == old_step_mode
+    old_step_mode = motor.get_register(sp.SpinRegister.STEP_MODE)
+    motor.set_register(sp.SpinRegister.STEP_MODE, 3)
+    assert motor.get_register(sp.SpinRegister.STEP_MODE) == 3
+    motor.set_register(sp.SpinRegister.STEP_MODE, old_step_mode)
+    assert motor.get_register(sp.SpinRegister.STEP_MODE) == old_step_mode
 
 
 def test_get_status(motor: sp.SpinDevice):
@@ -81,7 +81,7 @@ def test_abs_pos(motor: sp.SpinDevice):
 def test_abs_pos_negative(motor: sp.SpinDevice):
     assert motor.abs_pos == 0
 
-    motor.direction = sp.Direction.Reverse
+    motor.direction = sp.SpinDirection.Reverse
     motor.move(1000)
     assert motor.is_busy() is True
 
@@ -212,7 +212,7 @@ def test_set_illegal_tep_mode(motor: sp.SpinDevice):
 
 
 def test_move(motor: sp.SpinDevice):
-    motor.direction = sp.Direction.Forward
+    motor.direction = sp.SpinDirection.Forward
     motor.move(10000)
     assert motor.is_busy() is True
 
@@ -221,7 +221,7 @@ def test_move(motor: sp.SpinDevice):
 
     assert motor.abs_pos == 10000
 
-    motor.direction = sp.Direction.Reverse
+    motor.direction = sp.SpinDirection.Reverse
     motor.move(8000)
     assert motor.is_busy() is True
     while motor.is_busy():
@@ -266,60 +266,6 @@ def test_speed(motor: sp.SpinDevice):
     assert speed > 1.0
 
 
-def test_go_until(motor: sp.SpinDevice):
-    setup_motor(motor)
-    motor.move(2000)
-    start = time.monotonic()
-    while motor.is_busy() and time.monotonic() - start < 10.0:
-        time.sleep(0.1)
-    motor.go_until(direction=sp.Direction.Reverse)
-
-    start = time.monotonic()
-    while motor.is_busy() and time.monotonic() - start < 10.0:
-        time.sleep(0.1)
-    assert sp.SpinStatus.SwitchFlag in motor.get_status()
-    assert 0 <= motor.abs_pos <= 5
-
-
-def test_go_until_and_release(motor: sp.SpinDevice):
-    """
-    Test homing using a switch.
-    First move towards switch for course home position.
-    Then move away from switch until released to get accurate home position.
-    :param motor:
-    :return:
-    """
-    setup_motor(motor)
-    motor.direction = sp.Direction.Forward
-    motor.move(20000)
-    while motor.is_busy():
-        time.sleep(0.1)
-    motor.go_until(direction=sp.Direction.Reverse)
-    start = time.monotonic()
-    while motor.is_busy() and time.monotonic() - start < 10.0:
-        time.sleep(0.1)
-    assert 0 <= motor.abs_pos <= 5
-    time.sleep(0.1)
-    assert sp.SpinStatus.SwitchFlag in motor.get_status()
-
-    motor.release_switch(direction=sp.Direction.Forward)
-    start = time.monotonic()
-    while motor.is_busy() and time.monotonic() - start < 10.0:
-        time.sleep(0.1)
-    assert motor.abs_pos < 100
-
-    motor.move(10000)
-    start = time.monotonic()
-    while motor.is_busy() and time.monotonic() - start < 10.0:
-        time.sleep(0.1)
-    time.sleep(0.1)
-    assert sp.SpinStatus.SwitchFlag not in motor.get_status()
-
-    motor.go_home()
-    start = time.monotonic()
-    while motor.is_busy() and time.monotonic() - start < 10.0:
-        time.sleep(0.1)
-    assert 0 <= motor.abs_pos <= 5
 
 def test_reset_position(motor: sp.SpinDevice):
     assert motor.abs_pos == 0
@@ -365,3 +311,58 @@ def test_soft_hiz(motor: sp.SpinDevice):
     while motor.is_busy() and time.monotonic() - start < 2.0:
         time.sleep(0.1)
     assert sp.SpinStatus.HiZ in motor.get_status()
+
+def test_go_until(motor: sp.SpinDevice):
+    setup_motor(motor)
+    motor.move(2000)
+    start = time.monotonic()
+    while motor.is_busy() and time.monotonic() - start < 10.0:
+        time.sleep(0.1)
+    motor.go_until(direction=sp.SpinDirection.Reverse)
+
+    start = time.monotonic()
+    while motor.is_busy() and time.monotonic() - start < 10.0:
+        time.sleep(0.1)
+    assert sp.SpinStatus.SwitchFlag in motor.get_status()
+    assert 0 <= motor.abs_pos <= 5
+
+
+def test_go_until_and_release(motor: sp.SpinDevice):
+    """
+    Test homing using a switch.
+    First move towards switch for course home position.
+    Then move away from switch until released to get accurate home position.
+    :param motor:
+    :return:
+    """
+    setup_motor(motor)
+    motor.direction = sp.SpinDirection.Forward
+    motor.move(20000)
+    while motor.is_busy():
+        time.sleep(0.1)
+    motor.go_until(direction=sp.SpinDirection.Reverse)
+    start = time.monotonic()
+    while motor.is_busy() and time.monotonic() - start < 10.0:
+        time.sleep(0.1)
+    assert 0 <= motor.abs_pos <= 5
+    time.sleep(0.1)
+    assert sp.SpinStatus.SwitchFlag in motor.get_status()
+
+    motor.release_switch(direction=sp.SpinDirection.Forward)
+    start = time.monotonic()
+    while motor.is_busy() and time.monotonic() - start < 10.0:
+        time.sleep(0.1)
+    assert motor.abs_pos < 100
+
+    motor.move(10000)
+    start = time.monotonic()
+    while motor.is_busy() and time.monotonic() - start < 10.0:
+        time.sleep(0.1)
+    time.sleep(0.1)
+    assert sp.SpinStatus.SwitchFlag not in motor.get_status()
+
+    motor.go_home()
+    start = time.monotonic()
+    while motor.is_busy() and time.monotonic() - start < 10.0:
+        time.sleep(0.1)
+    assert 0 <= motor.abs_pos <= 5
