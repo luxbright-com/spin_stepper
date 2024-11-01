@@ -16,7 +16,7 @@ but this product is now retired. https://github.com/sparkfun/L6470-AutoDriver
 ST has an evaluation board called EVAL6470H https://www.st.com/en/evaluation-tools/eval6470h.html
 
 This is a fork from the st-spin package https://github.com/m-laniakea/st_spin by eir.
-But it has been re-worked from the ground up to be more pythonic and to handle lowast all available commands.
+But it has been re-worked from the ground up to be more pythonic and to handle most of the commands.
 
 Our purpose with this library was to solve our internal needs.
 We use this for internally developed lab and production equipment.
