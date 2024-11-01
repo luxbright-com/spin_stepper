@@ -5,6 +5,11 @@ import spin_stepper as sp
 
 logger = logging.getLogger(__name__)
 
+"""
+This test requires:
+* Two L6470 devices chained together.
+* A stepper motor with end switch connected to tha last device (0) in the chain.
+"""
 
 def setup_motor(_motor: sp.SpinDevice):
     """
@@ -24,7 +29,7 @@ def motor() -> sp.SpinDevice:
         total_devices=2,
         spi_select=(0, 0),
     )
-    _motor = st_chain.create(0)
+    _motor = st_chain.create(0) # first motor, but this is the last in the chain.
     _motor.reset_device()
     time.sleep(0.1)
     _motor.hard_hiz()
@@ -176,7 +181,7 @@ def test_set_k_therm(motor: sp.SpinDevice):
 def test_get_adc(motor: sp.SpinDevice):
     value = motor.adc_out
     logger.info(f"ADC: {value}")
-    assert 8 / 32 < value < 24 / 8
+    assert 8 / 32 < value < 30 / 32
 
 
 def test_get_ocd_th(motor: sp.SpinDevice):
