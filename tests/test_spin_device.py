@@ -323,6 +323,8 @@ def test_go_until(motor: sp.SpinDevice):
     start = time.monotonic()
     while motor.is_busy() and time.monotonic() - start < 10.0:
         time.sleep(0.1)
+    assert sp.SpinStatus.SwitchFlag not in motor.get_status()
+
     motor.go_until(direction=sp.SpinDirection.Reverse)
 
     start = time.monotonic()
