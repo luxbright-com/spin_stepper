@@ -11,12 +11,16 @@ description = "Python interface for stepper motor drivers from the STMicroelectr
 readme = "README.md"
 requires-python = ">=3.11"
 classifiers = [
-     "Development Status :: 3 - Alpha",
+    "Development Status :: 3 - Alpha",
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
 
 ]
 keywords = ["L6470", "L6470HTR", "STSPIN", "STMicroelectronics", "Stepper Motor", "Raspberry Pi", "SPI"]
+
+[project.urls]
+Homepage = "https://github.com/luxbright-com/spin_stepper"
+
 dependencies = [
     "spidev"
 ]
