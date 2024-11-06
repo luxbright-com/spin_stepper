@@ -6,9 +6,10 @@ class SpinChain:
     """Class for constructing a chain of SPIN devices"""
 
     def __init__(
-            self, total_devices: int,
-            spi_select: tuple[int, int] | None = None,
-            spi_transfer: Callable[[List[int]], List[int]] | None = None
+        self,
+        total_devices: int,
+        spi_select: tuple[int, int] | None = None,
+        spi_transfer: Callable[[List[int]], List[int]] | None = None,
     ) -> None:
         """
         If different from hardware SPI CS pin
@@ -34,6 +35,7 @@ class SpinChain:
 
         elif spi_select is not None:
             import spidev
+
             self._spi = spidev.SpiDev()
 
             bus, device = spi_select
@@ -51,22 +53,22 @@ class SpinChain:
 
     def create(self, position: int) -> SpinDevice:
         """
-                   +----------+
-              MOSI |   MCU    | MISO
-       +-----------+          +---------------+
-       |           +----------+               |
-       |                                      |
-       |                                      |
-       |             SPIN ICs                 |
-       |   +-----+     +-----+     +-----+    |
-       |SDI|     |     |     |     |     |SDO |
-       +---+  2  +-----+  1  +-----+  0  +----+
-           |     |     |     |     |     |
-           |     |     |     |     |     |
-           +-----+     +-----+     +-----+
-        Create a new SPIN device at the specified chain location
-        :position: Device position in chain
-        :return: A newly-instantiated SpinDevice
+                    +----------+
+               MOSI |   MCU    | MISO
+        +-----------+          +---------------+
+        |           +----------+               |
+        |                                      |
+        |                                      |
+        |             SPIN ICs                 |
+        |   +-----+     +-----+     +-----+    |
+        |SDI|     |     |     |     |     |SDO |
+        +---+  2  +-----+  1  +-----+  0  +----+
+            |     |     |     |     |     |
+            |     |     |     |     |     |
+            +-----+     +-----+     +-----+
+         Create a new SPIN device at the specified chain location
+         :position: Device position in chain
+         :return: A newly-instantiated SpinDevice
 
         """
         if position < 0:

@@ -42,7 +42,7 @@ def to_byte_array(value: int) -> list[int]:
         raise ValueError("value must be non-negative")
 
     byte_count = 1 if value == 0 else (value.bit_length() + 7) // 8
-    return list(value.to_bytes(byte_count, byteorder='big'))
+    return list(value.to_bytes(byte_count, byteorder="big"))
 
 
 def to_byte_array_with_length(value: int, length: int) -> list[int]:
@@ -83,6 +83,7 @@ class SpinRegister(enum.IntEnum):
     """
     RegisterAddresses
     """
+
     ACC = 0x05
     ADC_OUT = 0x12
     ALARM_EN = 0x17
@@ -140,7 +141,7 @@ class SpinRegister(enum.IntEnum):
             SpinRegister.STATUS.value: 2,
             SpinRegister.STEP_MODE.value: 1,
             SpinRegister.OCD_TH.value: 1,
-            SpinRegister.STALL_TH.value: 1
+            SpinRegister.STALL_TH.value: 1,
         }
 
         return register_size[self.value]
@@ -190,7 +191,7 @@ class SpinCommand(enum.IntEnum):
             SpinCommand.StatusGet.value: 2,
             SpinCommand.StepClock.value: 0,
             SpinCommand.HardStop.value: 0,
-            SpinCommand.SoftStop.value: 0
+            SpinCommand.SoftStop.value: 0,
         }
         return command_size[self.value]
 
@@ -202,6 +203,7 @@ class SpinStatus(enum.IntFlag):
     """
     ST_SPIN Device Status
     """
+
     HiZ = 0x0001
     NotBusy = 0x0002  # active low
     SwitchFlag = 0x0004  # low on closed switch, high on open
@@ -209,7 +211,7 @@ class SpinStatus(enum.IntFlag):
     Forward = 0x0010
     Acceleration = 0x0020
     Deceleration = 0x0040
-    ConstantSpeed = 0x0060 # note the bit overlap with Acceleration and Deceleration
+    ConstantSpeed = 0x0060  # note the bit overlap with Acceleration and Deceleration
     CmdNotPerformed = 0x0080
     CmdWrong = 0x0100
     NotUnderVoltage = 0x0200  # active low
@@ -225,16 +227,17 @@ class SpinDevice:
     """Class providing access to a single SPIN device"""
 
     max_steps_per_second: float = 15625.0
-    max_steps: int = 2 ** 22 - 1
+    max_steps: int = 2**22 - 1
     _TICK_SECONDS: float = 250e-9
-    _MAX_SPEED_K = 2 ** -18
-    _MIN_SPEED_K = 2 ** -24
-    _ACC_K = 2 ** -40
+    _MAX_SPEED_K = 2**-18
+    _MIN_SPEED_K = 2**-24
+    _ACC_K = 2**-40
 
     def __init__(
-            self, position: int,
-            total_devices: int,
-            spi_transfer: Callable[[list[int]], list[int]],
+        self,
+        position: int,
+        total_devices: int,
+        spi_transfer: Callable[[list[int]], list[int]],
     ):
         """
         :position: Position in chain, where 0 is the last device in chain
@@ -282,7 +285,7 @@ class SpinDevice:
         :return: Current motor speed in pulses per second.
         """
         _speed = self.get_register(SpinRegister.SPEED)
-        _k = 2 ** -28
+        _k = 2**-28
         return _speed * _k / self._TICK_SECONDS
 
     def get_speed_limits(self) -> (float, float):
@@ -290,14 +293,20 @@ class SpinDevice:
         Get the speed min and max limits of the device.
         :return: The min_speed, max_speed limits
         """
-        min_speed = self.get_register(SpinRegister.MIN_SPEED) * self._MIN_SPEED_K / self._TICK_SECONDS
-        max_speed = self.get_register(SpinRegister.MAX_SPEED) * self._MAX_SPEED_K / self._TICK_SECONDS
+        min_speed = (
+            self.get_register(SpinRegister.MIN_SPEED)
+            * self._MIN_SPEED_K
+            / self._TICK_SECONDS
+        )
+        max_speed = (
+            self.get_register(SpinRegister.MAX_SPEED)
+            * self._MAX_SPEED_K
+            / self._TICK_SECONDS
+        )
         return min_speed, max_speed
 
     def set_speed_limits(
-            self,
-            min_speed: float | None = None,
-            max_speed: float | None = None
+        self, min_speed: float | None = None, max_speed: float | None = None
     ) -> None:
         """
         Set the min_speed and max_speed limits of the device.
@@ -305,24 +314,28 @@ class SpinDevice:
         :param max_speed: Max_speed in pulses/s
         """
         if min_speed:
-            self.set_register(SpinRegister.MIN_SPEED, int(min_speed * self._TICK_SECONDS / self._MIN_SPEED_K))
+            self.set_register(
+                SpinRegister.MIN_SPEED,
+                int(min_speed * self._TICK_SECONDS / self._MIN_SPEED_K),
+            )
 
         if max_speed:
-            self.set_register(SpinRegister.MAX_SPEED, int(max_speed * self._TICK_SECONDS / self._MAX_SPEED_K))
+            self.set_register(
+                SpinRegister.MAX_SPEED,
+                int(max_speed * self._TICK_SECONDS / self._MAX_SPEED_K),
+            )
 
     def get_acceleration(self) -> (float, float):
         """
         Get the deceleration and acceleration of the device in steps/s2.
         :return: Acceleration and deceleration
         """
-        dec = self.get_register(SpinRegister.DEC) * self._ACC_K / self._TICK_SECONDS ** 2
-        acc = self.get_register(SpinRegister.ACC) * self._ACC_K / self._TICK_SECONDS ** 2
+        dec = self.get_register(SpinRegister.DEC) * self._ACC_K / self._TICK_SECONDS**2
+        acc = self.get_register(SpinRegister.ACC) * self._ACC_K / self._TICK_SECONDS**2
         return dec, acc
 
     def set_acceleration(
-            self,
-            dec: float | None = None,
-            acc: float | None = None
+        self, dec: float | None = None, acc: float | None = None
     ) -> None:
         """
         Set the deceleration and acceleration of the device in steps/s2.
@@ -330,9 +343,13 @@ class SpinDevice:
         :param acc: Acceleration in steps/s2
         """
         if dec:
-            self.set_register(SpinRegister.DEC, int(dec * self._TICK_SECONDS ** 2 / self._ACC_K))
+            self.set_register(
+                SpinRegister.DEC, int(dec * self._TICK_SECONDS**2 / self._ACC_K)
+            )
         if acc:
-            self.set_register(SpinRegister.ACC, int(acc * self._TICK_SECONDS ** 2 / self._ACC_K))
+            self.set_register(
+                SpinRegister.ACC, int(acc * self._TICK_SECONDS**2 / self._ACC_K)
+            )
 
     def get_fs_spd(self) -> float:
         """
@@ -342,7 +359,11 @@ class SpinDevice:
         Its value is expressed in step/tick.
         :return: FS_SPD
         """
-        return (self.get_register(SpinRegister.FS_SPEED) + 0.5) * self._MAX_SPEED_K / self._TICK_SECONDS
+        return (
+            (self.get_register(SpinRegister.FS_SPEED) + 0.5)
+            * self._MAX_SPEED_K
+            / self._TICK_SECONDS
+        )
 
     def set_fs_spd(self, value: float) -> None:
         """
@@ -378,11 +399,11 @@ class SpinDevice:
         return kval_hold, kval_run, kval_acc, kval_dec
 
     def set_kval(
-            self,
-            kval_hold: float | None = None,
-            kval_run: float | None = None,
-            kval_acc: float | None = None,
-            kval_dec: float | None = None
+        self,
+        kval_hold: float | None = None,
+        kval_run: float | None = None,
+        kval_acc: float | None = None,
+        kval_dec: float | None = None,
     ) -> None:
         """
         Set the KVAL registers.
@@ -422,20 +443,22 @@ class SpinDevice:
         the speed is greater than the INT_SPEED during deceleration.
         :return: INT_SPEED, ST_SLP, FN_SLP_ACC, FN_SLP_DEC
         """
-        _speed_k = 2 ** -26
+        _speed_k = 2**-26
         _slope_k = 0.0015
-        int_speed = self.get_register(SpinRegister.INT_SPEED) * _speed_k / self._TICK_SECONDS
+        int_speed = (
+            self.get_register(SpinRegister.INT_SPEED) * _speed_k / self._TICK_SECONDS
+        )
         st_slp = self.get_register(SpinRegister.ST_SLP) * _slope_k
         fn_slp_acc = self.get_register(SpinRegister.FN_SLP_ACC) * _slope_k
         fn_slp_dec = self.get_register(SpinRegister.FN_SLP_DEC) * _slope_k
         return int_speed, st_slp, fn_slp_acc, fn_slp_dec
 
     def set_bemf(
-            self,
-            int_speed: float | None = None,
-            st_slp: float | None = None,
-            fn_slp_acc: float | None = None,
-            fn_slp_dec: float | None = None
+        self,
+        int_speed: float | None = None,
+        st_slp: float | None = None,
+        fn_slp_acc: float | None = None,
+        fn_slp_dec: float | None = None,
     ):
         """
         Set BEMF registers.
@@ -452,11 +475,13 @@ class SpinDevice:
 
         :return: None
         """
-        _speed_k = 2 ** -26
+        _speed_k = 2**-26
         _slope_k = 0.0015
 
         if int_speed:
-            self.set_register(SpinRegister.INT_SPEED, int(int_speed / _speed_k * self._TICK_SECONDS))
+            self.set_register(
+                SpinRegister.INT_SPEED, int(int_speed / _speed_k * self._TICK_SECONDS)
+            )
         if st_slp:
             self.set_register(SpinRegister.ST_SLP, int(st_slp / _slope_k))
         if fn_slp_acc:
@@ -549,7 +574,9 @@ class SpinDevice:
             step_value = {1: 0, 2: 1, 4: 2, 8: 3, 16: 4, 32: 5, 64: 6, 128: 7}
             self.set_register(SpinRegister.STEP_MODE, step_value[micro_step])
         except KeyError:
-            raise ValueError("Invalid micro_step value. Must be 1, 2, 4, 8, 16, 32, 64 or 128")
+            raise ValueError(
+                "Invalid micro_step value. Must be 1, 2, 4, 8, 16, 32, 64 or 128"
+            )
 
     def reset_position(self) -> None:
         """
@@ -585,9 +612,7 @@ class SpinDevice:
         return self._writeMultiple([0x00] * register.size)
 
     def go_until(
-            self,
-            set_mark: bool = False,
-            direction: SpinDirection | None = None
+        self, set_mark: bool = False, direction: SpinDirection | None = None
     ) -> None:
         """
         Go until switch turn on event.
@@ -600,10 +625,7 @@ class SpinDevice:
         self._writeCommand(SpinCommand.GoUntil, option=option)
 
     def release_switch(
-            self,
-            set_mark: bool = False,
-            direction: SpinDirection | None = None
-
+        self, set_mark: bool = False, direction: SpinDirection | None = None
     ) -> None:
         """
         Move until the switch is released.
@@ -621,9 +643,9 @@ class SpinDevice:
         :steps: Number of (micro)steps to take
         """
         if steps < 0:
-            raise ValueError('Steps cannot be negative')
+            raise ValueError("Steps cannot be negative")
         if steps > self.max_steps:
-            raise ValueError('Steps cannot be greater than MaxSteps')
+            raise ValueError("Steps cannot be greater than MaxSteps")
 
         if isinstance(direction, SpinDirection):
             self._direction = direction
@@ -664,12 +686,12 @@ class SpinDevice:
         :return: None
         """
         if speed < 0.0 or speed > self.max_steps_per_second:
-            raise ValueError('Speed must be between 0.0 and max_steps_per_second')
+            raise ValueError("Speed must be between 0.0 and max_steps_per_second")
 
         if isinstance(direction, SpinDirection):
             self._direction = direction
 
-        _k = 2 ** -28
+        _k = 2**-28
         payload = int(speed / _k * self._TICK_SECONDS)
         self._writeCommand(SpinCommand.Run, option=self._direction, payload=payload)
 
@@ -703,9 +725,7 @@ class SpinDevice:
         self._writeCommand(SpinCommand.HiZSoft)
 
     def hard_stop(self) -> None:
-        """Stop motors abruptly, maintain holding current
-
-        """
+        """Stop motors abruptly, maintain holding current"""
         self._writeCommand(SpinCommand.HardStop)
 
     def soft_stop(self) -> None:
@@ -744,48 +764,50 @@ class SpinDevice:
         """
         status = SpinStatus(self.get_register(SpinRegister.STATUS))
         strings = []
-        if SpinStatus.NotStepLossA not in status and SpinStatus.NotStepLossB not in status:
-            strings.append('!STEP LOSS')
+        if (
+            SpinStatus.NotStepLossA not in status
+            and SpinStatus.NotStepLossB not in status
+        ):
+            strings.append("!STEP LOSS")
         if SpinStatus.NotOverCurrent in status:
-            strings.append('!OVER CURRENT')
+            strings.append("!OVER CURRENT")
         if SpinStatus.NotThermalShutdown in status:
-            strings.append('!THERMAL SHUTDOWN')
+            strings.append("!THERMAL SHUTDOWN")
         if SpinStatus.NotThermalWarning in status:
-            strings.append('!THERMAL WARNING')
+            strings.append("!THERMAL WARNING")
         if SpinStatus.NotUnderVoltage in status:
-            strings.append('!UNDER VOLTAGE')
+            strings.append("!UNDER VOLTAGE")
 
         if SpinStatus.CmdWrong in status:
-            strings.append('!WRONG COMMAND')
+            strings.append("!WRONG COMMAND")
         if SpinStatus.CmdNotPerformed in status:
-            strings.append('!NOT PERFORMED')
+            strings.append("!NOT PERFORMED")
 
         if SpinStatus.Forward in status:
-            strings.append('Direction Forward')
+            strings.append("Direction Forward")
         else:
-            strings.append('Direction Reverse')
+            strings.append("Direction Reverse")
 
         if SpinStatus.ConstantSpeed in status:
-            strings.append('Constant speed')
+            strings.append("Constant speed")
         elif SpinStatus.Acceleration in status:
-            strings.append('Acceleration')
+            strings.append("Acceleration")
         elif SpinStatus.Deceleration in status:
-            strings.append('Deceleration')
+            strings.append("Deceleration")
         else:
-            strings.append('Stopped')
+            strings.append("Stopped")
 
         if SpinStatus.NotBusy in status:
-            strings.append('Idle')
+            strings.append("Idle")
         else:
-            strings.append('Busy')
+            strings.append("Busy")
 
         if SpinStatus.HiZ in status:
             strings.append("HiZ True")
         else:
             strings.append("HiZ False")
 
-        return '\n'.join(strings)
-
+        return "\n".join(strings)
 
     def _write(self, data: int) -> int:
         """Write a single byte to the device.
@@ -794,7 +816,7 @@ class SpinDevice:
         :return: Returns response byte
         """
         if data < 0x00 or data > 0xFF:
-            raise ValueError('Data must be between 0x00 and 0xFF')
+            raise ValueError("Data must be between 0x00 and 0xFF")
 
         buffer = [SpinCommand.Nop.value] * self._total_devices
         buffer[self._position] = data
@@ -815,10 +837,10 @@ class SpinDevice:
         return to_int(response)
 
     def _writeCommand(
-            self,
-            command: SpinCommand,
-            option: int | None = None,
-            payload: int | None = None
+        self,
+        command: SpinCommand,
+        option: int | None = None,
+        payload: int | None = None,
     ) -> int:
         """Write command to device with payload (if any)
 
@@ -843,6 +865,4 @@ class SpinDevice:
         else:
             payload_size = command.size
 
-        return self._writeMultiple(
-            to_byte_array_with_length(payload, payload_size)
-        )
+        return self._writeMultiple(to_byte_array_with_length(payload, payload_size))
