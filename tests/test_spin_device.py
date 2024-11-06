@@ -266,11 +266,11 @@ def test_go_mark(motor: sp.SpinDevice):
 
 def test_speed(motor: sp.SpinDevice):
     assert motor.speed < 1.0
-    motor.move(1000)
+    motor.run(speed=200)
+    time.sleep(0.5)
     speed = motor.speed
-    assert speed > 1.0
-
-
+    assert speed > 190
+    motor.soft_hiz()
 
 def test_reset_position(motor: sp.SpinDevice):
     assert motor.abs_pos == 0
@@ -300,10 +300,15 @@ def test_hard_hiz(motor: sp.SpinDevice):
 
 
 def test_soft_stop(motor: sp.SpinDevice):
-    motor.run(1000)
-    time.sleep(1.0)
+    setup_motor(motor)
+    motor.run(2000)
+    time.sleep(2.0)
     motor.soft_stop()
     assert motor.is_busy() is True
+    assert sp.SpinStatus.HiZ not in motor.get_status()
+    start = time.monotonic()
+    while motor.is_busy() and time.monotonic() - start < 5.0:
+        time.sleep(0.1)
     assert sp.SpinStatus.HiZ not in motor.get_status()
 
 

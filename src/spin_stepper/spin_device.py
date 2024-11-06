@@ -283,7 +283,7 @@ class SpinDevice:
         """
         _speed = self.get_register(SpinRegister.SPEED)
         _k = 2 ** -28
-        return _speed * self._TICK_SECONDS / _k
+        return _speed * _k / self._TICK_SECONDS
 
     def get_speed_limits(self) -> (float, float):
         """
@@ -670,7 +670,8 @@ class SpinDevice:
             self._direction = direction
 
         _k = 2 ** -28
-        self._writeCommand(SpinCommand.Run, option=self._direction, payload=int(speed * _k / self._TICK_SECONDS))
+        payload = int(speed / _k * self._TICK_SECONDS)
+        self._writeCommand(SpinCommand.Run, option=self._direction, payload=payload)
 
     @property
     def direction(self) -> SpinDirection:
