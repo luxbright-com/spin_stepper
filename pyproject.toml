@@ -17,13 +17,13 @@ classifiers = [
 
 ]
 keywords = ["L6470", "L6470HTR", "STSPIN", "STMicroelectronics", "Stepper Motor", "Raspberry Pi", "SPI"]
+dependencies = [
+    "spidev"
+]
 
 [project.urls]
 Homepage = "https://github.com/luxbright-com/spin_stepper"
 
-dependencies = [
-    "spidev"
-]
 
 [project.optional-dependencies]
 tests = [

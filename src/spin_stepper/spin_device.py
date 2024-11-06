@@ -209,7 +209,7 @@ class SpinStatus(enum.IntFlag):
     Forward = 0x0010
     Acceleration = 0x0020
     Deceleration = 0x0040
-    ConstantSpeed = 0x0060
+    ConstantSpeed = 0x0060 # note the bit overlap with Acceleration and Deceleration
     CmdNotPerformed = 0x0080
     CmdWrong = 0x0100
     NotUnderVoltage = 0x0200  # active low
