@@ -239,7 +239,7 @@ class SpinDevice:
         position: int,
         total_devices: int,
         spi_transfer: Callable[[list[int]], list[int]],
-        lock: Lock
+        lock: Lock,
     ):
         """
         :position: Position in the chain, where 0 is the last device in the chain.
