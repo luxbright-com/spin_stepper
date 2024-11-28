@@ -1,5 +1,6 @@
 import enum
 import logging
+from threading import Lock
 from typing import Callable
 
 SET_MARK_FLAG = 0x04
@@ -238,15 +239,18 @@ class SpinDevice:
         position: int,
         total_devices: int,
         spi_transfer: Callable[[list[int]], list[int]],
+        lock: Lock
     ):
         """
-        :position: Position in chain, where 0 is the last device in chain
-        :total_devices: Total number of devices in chain
-        :spi: SPI object used for serial communication
+        :position: Position in the chain, where 0 is the last device in the chain.
+        :total_devices: Total number of devices in the chain.
+        :spi: SPI object used for serial communication.
+        :lock: A shared Lock object used for thread safety.
         """
         self._position: int = position
         self._total_devices: int = total_devices
         self._spi_transfer: callable = spi_transfer
+        self.lock = lock
 
         self._direction = SpinDirection.Forward.value
 
@@ -583,14 +587,16 @@ class SpinDevice:
         The ResetPos command resets the ABS_POS register to zero.
         The zero position is also defined as HOME position
         """
-        self._writeCommand(SpinCommand.ResetPos)
+        with self.lock:
+            self._writeCommand(SpinCommand.ResetPos)
 
     def reset_device(self) -> None:
         """
         Reset device.
         :return: None
         """
-        self._writeCommand(SpinCommand.ResetDevice)
+        with self.lock:
+            self._writeCommand(SpinCommand.ResetDevice)
 
     def set_register(self, register: SpinRegister, value: int) -> None:
         """
@@ -598,7 +604,8 @@ class SpinDevice:
         :register: The register location
         :value: Value register should be set to
         """
-        self._writeCommand(SpinCommand.ParamSet, option=register, payload=value)
+        with self.lock:
+            self._writeCommand(SpinCommand.ParamSet, option=register, payload=value)
 
     def get_register(self, register: SpinRegister) -> int:
         """
@@ -608,8 +615,9 @@ class SpinDevice:
         :returns: Value of specified register
 
         """
-        self._writeCommand(SpinCommand.ParamGet, option=register)
-        return self._writeMultiple([0x00] * register.size)
+        with self.lock:
+            self._writeCommand(SpinCommand.ParamGet, option=register)
+            return self._writeMultiple([0x00] * register.size)
 
     def go_until(
         self, set_mark: bool = False, direction: SpinDirection | None = None
@@ -622,7 +630,8 @@ class SpinDevice:
             self._direction = direction
         act = SET_MARK_FLAG if set_mark else 0
         option = act | self._direction
-        self._writeCommand(SpinCommand.GoUntil, option=option)
+        with self.lock:
+            self._writeCommand(SpinCommand.GoUntil, option=option)
 
     def release_switch(
         self, set_mark: bool = False, direction: SpinDirection | None = None
@@ -635,7 +644,8 @@ class SpinDevice:
             self._direction = direction
         act = SET_MARK_FLAG if set_mark else 0
         option = act | self._direction
-        self._writeCommand(SpinCommand.ReleaseSw, option=option)
+        with self.lock:
+            self._writeCommand(SpinCommand.ReleaseSw, option=option)
 
     def move(self, steps: int, direction: SpinDirection | None = None) -> None:
         """
@@ -649,7 +659,8 @@ class SpinDevice:
 
         if isinstance(direction, SpinDirection):
             self._direction = direction
-        self._writeCommand(SpinCommand.Move, option=self._direction, payload=steps)
+        with self.lock:
+            self._writeCommand(SpinCommand.Move, option=self._direction, payload=steps)
 
     def go_to(self, position: int) -> None:
         """
@@ -661,7 +672,8 @@ class SpinDevice:
         :param position: Absolute position relative to ABS_POS
         :return: None
         """
-        self._writeCommand(SpinCommand.GoTo, payload=position)
+        with self.lock:
+            self._writeCommand(SpinCommand.GoTo, payload=position)
 
     def go_home(self) -> None:
         """
@@ -670,13 +682,15 @@ class SpinDevice:
         This command can be given only when the previous motion command has been completed (BUSY flag released).
         :return: None
         """
-        self._writeCommand(SpinCommand.GoHome)
+        with self.lock:
+            self._writeCommand(SpinCommand.GoHome)
 
     def go_mark(self) -> None:
         """
         The GoMark command produces a motion to the MARK position performing the minimum path.
         """
-        self._writeCommand(SpinCommand.GoMark)
+        with self.lock:
+            self._writeCommand(SpinCommand.GoMark)
 
     def run(self, speed: float, direction: SpinDirection | None = None) -> None:
         """
@@ -693,7 +707,8 @@ class SpinDevice:
 
         _k = 2**-28
         payload = int(speed / _k * self._TICK_SECONDS)
-        self._writeCommand(SpinCommand.Run, option=self._direction, payload=payload)
+        with self.lock:
+            self._writeCommand(SpinCommand.Run, option=self._direction, payload=payload)
 
     @property
     def direction(self) -> SpinDirection:
@@ -716,23 +731,27 @@ class SpinDevice:
         Stop motors abruptly, release holding current.
         :return: None
         """
-        self._writeCommand(SpinCommand.HiZHard)
+        with self.lock:
+            self._writeCommand(SpinCommand.HiZHard)
 
     def soft_hiz(self) -> None:
         """
         Stop motors, release holding current.
         """
-        self._writeCommand(SpinCommand.HiZSoft)
+        with self.lock:
+            self._writeCommand(SpinCommand.HiZSoft)
 
     def hard_stop(self) -> None:
         """Stop motors abruptly, maintain holding current"""
-        self._writeCommand(SpinCommand.HardStop)
+        with self.lock:
+            self._writeCommand(SpinCommand.HardStop)
 
     def soft_stop(self) -> None:
         """
         Stop motors, maintain holding current
         """
-        self._writeCommand(SpinCommand.SoftStop)
+        with self.lock:
+            self._writeCommand(SpinCommand.SoftStop)
 
     def get_status(self) -> SpinStatus:
         """Get status register
@@ -741,9 +760,10 @@ class SpinDevice:
         :returns: Status enum.
 
         """
-        self._writeCommand(SpinCommand.StatusGet)
-        status = self._writeMultiple([0x00] * SpinCommand.StatusGet.size)
-        return SpinStatus(status)
+        with self.lock:
+            self._writeCommand(SpinCommand.StatusGet)
+            status = self._writeMultiple([0x00] * SpinCommand.StatusGet.size)
+            return SpinStatus(status)
 
     def is_busy(self) -> bool:
         """

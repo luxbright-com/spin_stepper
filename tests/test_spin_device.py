@@ -1,7 +1,10 @@
 import logging
+import threading
+
 import pytest
 import time
 import spin_stepper as sp
+from spin_stepper import SpinDirection
 
 logger = logging.getLogger(__name__)
 
@@ -15,9 +18,9 @@ def setup_motor(_motor: sp.SpinDevice):
     """
     This is a hook for running tests with motors that can't run with default config.
     """
-    _motor.set_acceleration(dec=50, acc=50)
+    _motor.set_acceleration(dec=200, acc=200)
     _motor.set_speed_limits(min_speed=2.0, max_speed=2000.0)
-    _motor.set_micro_step(128)
+    _motor.set_micro_step(16)
     _motor.set_ocd_th(3.0)
     _motor.set_stall_th(1.0)
     _motor.set_kval(kval_hold=0.1, kval_acc=0.3, kval_run=0.2, kval_dec=0.3)
@@ -265,9 +268,11 @@ def test_go_mark(motor: sp.SpinDevice):
 
 
 def test_speed(motor: sp.SpinDevice):
-    assert motor.speed < 1.0
+    setup_motor(motor)
+    time.sleep(1.0)
+    assert motor.speed < 5.0
     motor.run(speed=200)
-    time.sleep(0.5)
+    time.sleep(1.0)
     speed = motor.speed
     assert speed > 190
     motor.soft_hiz()
@@ -378,3 +383,29 @@ def test_go_until_and_release(motor: sp.SpinDevice):
     while motor.is_busy() and time.monotonic() - start < 10.0:
         time.sleep(0.1)
     assert 0 <= motor.abs_pos <= 5
+
+
+def test_multi_thread(motor: sp.SpinDevice):
+    def loop(_motor):
+        while run:
+            speed = _motor.speed
+            pos = _motor.abs_pos
+            logger.info(f"loop {speed=} ({pos=})")
+            time.sleep(0.001)
+
+    run = True
+    setup_motor(motor)
+    thread = threading.Thread(target=loop, args=(motor,), daemon=True)
+    thread.start()
+    motor.run(200, SpinDirection.Forward)
+    last_pos = motor.abs_pos
+    for i in range(100):
+        time.sleep(0.05)
+        speed = motor.speed
+        pos = motor.abs_pos
+        assert pos > last_pos
+        last_pos = pos
+        logger.info(f"for {speed=} ({pos=})")
+    motor.soft_hiz()
+    run = False
+    thread.join(1.0)
