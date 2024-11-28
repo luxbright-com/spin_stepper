@@ -1,5 +1,6 @@
 from typing import Callable, List
 from .spin_device import SpinDevice
+from threading import Lock
 
 
 class SpinChain:
@@ -28,6 +29,7 @@ class SpinChain:
             raise RuntimeError("spi_select or spi_transfer must be set")
 
         self._total_devices: int = total_devices
+        self._lock = Lock() # Shared with alla SpinDevices. Prevent multiple concurrent SPI request.
 
         # {{{ SPI setup
         if spi_transfer is not None:
@@ -81,4 +83,5 @@ class SpinChain:
             position,
             self._total_devices,
             self._spi_transfer,
+            self._lock
         )
