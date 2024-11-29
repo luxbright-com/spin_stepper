@@ -203,10 +203,13 @@ class SpinCommand(enum.IntEnum):
 class SpinStatus(enum.IntFlag):
     """
     ST_SPIN Device Status
+    Some flags are active low from the device,
+    those are inverted by the spin_status_factory to get flags that are easier to use.
+    Inverted flags are marked with * below
     """
 
     HiZ = 0x0001
-    NotBusy = 0x0002  # active low
+    Busy = 0x0002  # * active low
     SwitchFlag = 0x0004  # low on closed switch, high on open
     SwitchEvent = 0x0008  # high on falling edge
     Forward = 0x0010
@@ -215,13 +218,23 @@ class SpinStatus(enum.IntFlag):
     ConstantSpeed = 0x0060  # note the bit overlap with Acceleration and Deceleration
     CmdNotPerformed = 0x0080
     CmdWrong = 0x0100
-    NotUnderVoltage = 0x0200  # active low
-    NotThermalWarning = 0x0400  # active low
-    NotThermalShutdown = 0x0800  # active low
-    NotOverCurrent = 0x1000  # active low
-    NotStepLossA = 0x2000  # low on stall detect
-    NotStepLossB = 0x4000  # low on stall detect
+    UnderVoltage = 0x0200  # * active low
+    ThermalWarning = 0x0400  # * active low
+    ThermalShutdown = 0x0800  # * active low
+    OverCurrent = 0x1000  # * active low
+    StepLossA = 0x2000  # * low on stall detect
+    StepLossB = 0x4000  # * low on stall detect
     StepClockMode = 0x8000
+
+
+def spin_status_factory(raw_value: int) -> SpinStatus:
+    """
+    Invert active low flags and return a SpinStatus instance
+    :param raw_value: raw status register value
+    :return: SpinStatus instance
+    """
+    invert_mask = 0x7E02
+    return SpinStatus(raw_value ^ invert_mask)
 
 
 class SpinDevice:
@@ -762,72 +775,29 @@ class SpinDevice:
         """
         with self.lock:
             self._writeCommand(SpinCommand.StatusGet)
-            status = self._writeMultiple([0x00] * SpinCommand.StatusGet.size)
-            return SpinStatus(status)
+            # STEP_LOSS_B, STEP_LOSS A, OCD, TH_SD, TH_WRN, UV_LO, BUSY are active low.
+            # Invert them to get usable status flags
+            raw_status = self._writeMultiple([0x00] * SpinCommand.StatusGet.size)
+            return spin_status_factory(raw_status)
+
+    @property
+    def status(self) -> SpinStatus:
+        """
+        Read status register without clearing warning flags.
+        Does not clear status flags.
+        :return:
+        """
+        return spin_status_factory(self.get_register(SpinRegister.STATUS))
 
     def is_busy(self) -> bool:
         """
         Checks busy status of the device.
         Does not clear status flags.
-        :return: True if the device is busy, else False.
-
+        :return: True, if the device is busy, else False.
         """
         # We use getRegister instead of getStatus
         # So as not to clear any warning flags
-        status = SpinStatus(self.get_register(SpinRegister.STATUS))
-        return SpinStatus.NotBusy not in status
-
-    def get_pretty_status(self) -> str:
-        """
-        Return a str representing the status.
-        :returns: A str representing the status
-        """
-        status = SpinStatus(self.get_register(SpinRegister.STATUS))
-        strings = []
-        if (
-            SpinStatus.NotStepLossA not in status
-            and SpinStatus.NotStepLossB not in status
-        ):
-            strings.append("!STEP LOSS")
-        if SpinStatus.NotOverCurrent in status:
-            strings.append("!OVER CURRENT")
-        if SpinStatus.NotThermalShutdown in status:
-            strings.append("!THERMAL SHUTDOWN")
-        if SpinStatus.NotThermalWarning in status:
-            strings.append("!THERMAL WARNING")
-        if SpinStatus.NotUnderVoltage in status:
-            strings.append("!UNDER VOLTAGE")
-
-        if SpinStatus.CmdWrong in status:
-            strings.append("!WRONG COMMAND")
-        if SpinStatus.CmdNotPerformed in status:
-            strings.append("!NOT PERFORMED")
-
-        if SpinStatus.Forward in status:
-            strings.append("Direction Forward")
-        else:
-            strings.append("Direction Reverse")
-
-        if SpinStatus.ConstantSpeed in status:
-            strings.append("Constant speed")
-        elif SpinStatus.Acceleration in status:
-            strings.append("Acceleration")
-        elif SpinStatus.Deceleration in status:
-            strings.append("Deceleration")
-        else:
-            strings.append("Stopped")
-
-        if SpinStatus.NotBusy in status:
-            strings.append("Idle")
-        else:
-            strings.append("Busy")
-
-        if SpinStatus.HiZ in status:
-            strings.append("HiZ True")
-        else:
-            strings.append("HiZ False")
-
-        return "\n".join(strings)
+        return SpinStatus.Busy in self.status
 
     def _write(self, data: int) -> int:
         """Write a single byte to the device.

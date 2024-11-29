@@ -4,7 +4,7 @@ import threading
 import pytest
 import time
 import spin_stepper as sp
-from spin_stepper import SpinDirection
+from spin_stepper import SpinDirection, SpinStatus
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +13,7 @@ This test requires:
 * Two L6470 devices chained together.
 * A stepper motor with end switch connected to tha last device (0) in the chain.
 """
+
 
 def setup_motor(_motor: sp.SpinDevice):
     """
@@ -32,7 +33,7 @@ def motor() -> sp.SpinDevice:
         total_devices=2,
         spi_select=(0, 0),
     )
-    _motor = st_chain.create(0) # first motor, but this is the last in the chain.
+    _motor = st_chain.create(0)  # first motor, but this is the last in the chain.
     _motor.reset_device()
     time.sleep(0.1)
     _motor.hard_hiz()
@@ -65,12 +66,14 @@ def test_set_register(motor: sp.SpinDevice):
 
 
 def test_get_status(motor: sp.SpinDevice):
+    motor.get_status()  # clear old warnings
     status = motor.get_status()
     logger.info(f"Status:{status.name}")
-    assert sp.SpinStatus.NotBusy in status
+    assert status is SpinStatus.HiZ
 
 
 def test_is_busy(motor: sp.SpinDevice):
+    motor.get_status()  # clear old warnings
     assert motor.is_busy() is False
 
 
@@ -277,6 +280,7 @@ def test_speed(motor: sp.SpinDevice):
     assert speed > 190
     motor.soft_hiz()
 
+
 def test_reset_position(motor: sp.SpinDevice):
     assert motor.abs_pos == 0
     motor.move(1000)
@@ -326,6 +330,7 @@ def test_soft_hiz(motor: sp.SpinDevice):
     while motor.is_busy() and time.monotonic() - start < 2.0:
         time.sleep(0.1)
     assert sp.SpinStatus.HiZ in motor.get_status()
+
 
 def test_go_until(motor: sp.SpinDevice):
     setup_motor(motor)
