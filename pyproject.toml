@@ -1,6 +1,6 @@
 [project]
 name = "spin_stepper"
-version = "0.0.3"
+version = "0.0.4"
 authors = [
     {name="Ulrik Södergren", email="ulrik.sodergren@luxbright.com"}
 ]
