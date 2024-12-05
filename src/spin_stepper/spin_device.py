@@ -268,6 +268,22 @@ class SpinDevice:
         self._direction = SpinDirection.Forward.value
 
     @property
+    def direction(self) -> SpinDirection:
+        """
+        Get motor direction.
+        :return: Motor direction
+        """
+        return SpinDirection(self._direction)
+
+    @direction.setter
+    def direction(self, direction: SpinDirection) -> None:
+        """
+        Set motor direction.
+        :param direction: Direction to set motor to.
+        """
+        self._direction = direction.value
+
+    @property
     def abs_pos(self) -> int:
         """
         Read the absolute position register.
@@ -640,7 +656,7 @@ class SpinDevice:
         This is used to set the home or mark positions
         """
         if isinstance(direction, SpinDirection):
-            self._direction = direction
+            self.direction = direction
         act = SET_MARK_FLAG if set_mark else 0
         option = act | self._direction
         with self.lock:
@@ -654,7 +670,7 @@ class SpinDevice:
         This is used in combination with the go_until to get very accurate home or mark positions
         """
         if isinstance(direction, SpinDirection):
-            self._direction = direction
+            self.direction = direction
         act = SET_MARK_FLAG if set_mark else 0
         option = act | self._direction
         with self.lock:
@@ -671,7 +687,7 @@ class SpinDevice:
             raise ValueError("Steps cannot be greater than MaxSteps")
 
         if isinstance(direction, SpinDirection):
-            self._direction = direction
+            self.direction = direction
         with self.lock:
             self._writeCommand(SpinCommand.Move, option=self._direction, payload=steps)
 
@@ -716,28 +732,12 @@ class SpinDevice:
             raise ValueError("Speed must be between 0.0 and max_steps_per_second")
 
         if isinstance(direction, SpinDirection):
-            self._direction = direction
+            self.direction = direction
 
         _k = 2**-28
         payload = int(speed / _k * self._TICK_SECONDS)
         with self.lock:
             self._writeCommand(SpinCommand.Run, option=self._direction, payload=payload)
-
-    @property
-    def direction(self) -> SpinDirection:
-        """
-        Get motor direction.
-        :return: Motor direction
-        """
-        return SpinDirection(self._direction)
-
-    @direction.setter
-    def direction(self, direction: SpinDirection) -> None:
-        """
-        Set motor direction.
-        :param direction: Direction to set motor to.
-        """
-        self._direction = direction.value
 
     def hard_hiz(self) -> None:
         """

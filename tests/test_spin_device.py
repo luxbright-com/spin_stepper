@@ -33,7 +33,7 @@ def motor() -> sp.SpinDevice:
         total_devices=2,
         spi_select=(0, 0),
     )
-    _motor = st_chain.create(0)  # first motor, but this is the last in the chain.
+    _motor = st_chain.create(1)  # first motor, but this is the last in the chain.
     _motor.reset_device()
     time.sleep(0.1)
     _motor.hard_hiz()
@@ -223,17 +223,15 @@ def test_set_illegal_tep_mode(motor: sp.SpinDevice):
 
 
 def test_move(motor: sp.SpinDevice):
-    motor.direction = sp.SpinDirection.Forward
-    motor.move(10000)
+    setup_motor(motor)
+    motor.move(10000, direction=sp.SpinDirection.Forward)
     assert motor.is_busy() is True
-
     while motor.is_busy():
         time.sleep(0.1)
 
     assert motor.abs_pos == 10000
 
-    motor.direction = sp.SpinDirection.Reverse
-    motor.move(8000)
+    motor.move(8000, direction=sp.SpinDirection.Reverse)
     assert motor.is_busy() is True
     while motor.is_busy():
         time.sleep(0.1)
