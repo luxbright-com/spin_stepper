@@ -1,5 +1,6 @@
 import logging
 import threading
+from time import sleep
 
 import pytest
 import time
@@ -245,6 +246,12 @@ def test_go_to(motor: sp.SpinDevice):
         time.sleep(0.1)
     assert motor.abs_pos == 10000
 
+    # negative position
+    motor.reset_position()
+    motor.go_to(-1000)
+    while motor.is_busy():
+        time.sleep(0.1)
+    assert motor.abs_pos < 0
 
 def test_go_home(motor: sp.SpinDevice):
     motor.go_to(10000)
@@ -412,3 +419,45 @@ def test_multi_thread(motor: sp.SpinDevice):
     motor.soft_hiz()
     run = False
     thread.join(1.0)
+
+
+def test_step_modes_speed(motor: sp.SpinDevice):
+    """
+    Speed settings does not depend on micro step mode.
+    :param motor:
+    :return:
+    """
+    setup_motor(motor)
+    speed = 200
+    step_modes = [2, 16, 128]
+
+    for step_mode in step_modes:
+        motor.set_micro_step(step_mode)
+        logger.info(f"{motor.get_micro_step()} micro steps")
+        assert motor.get_micro_step() == step_mode
+        motor.run(speed)
+        time.sleep(5)
+        assert motor.speed == pytest.approx(speed, abs=20)
+        motor.soft_hiz()
+        time.sleep(2)
+
+def test_step_modes_move(motor: sp.SpinDevice):
+    """
+    Position and distance settings do depend on micro step mode.
+    :param motor:
+    :return:
+    """
+    setup_motor(motor)
+    motor.set_speed_limits(max_speed=500)
+    distance = 1000
+    step_modes = [2, 16, 128]
+
+    for step_mode in step_modes:
+        motor.set_micro_step(step_mode)
+        logger.info(f"{motor.get_micro_step()} micro steps")
+        assert motor.get_micro_step() == step_mode
+        motor.move(distance * step_mode)
+        while motor.is_busy():
+            time.sleep(0.1)
+        motor.soft_hiz()
+        time.sleep(2)

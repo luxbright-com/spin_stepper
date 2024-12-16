@@ -8,11 +8,30 @@ SET_MARK_FLAG = 0x04
 logger = logging.getLogger(__name__)
 
 
-def twos_complement(value, bits) -> int:
+def decode_twos_complement(value: int, bits: int) -> int:
+    """
+    Decode two complement binary numbers to int.
+    :param value: Binary value
+    :param bits: Bit width
+    :return:
+    """
     if (value & (1 << (bits - 1))) != 0:  # if sign bit is set e.g., 8bit: 128-255
         return value - (1 << bits)  # compute negative value
     return value  # return positive value as is
 
+
+def encode_twos_complement(value: int, bits: int) -> int:
+    """
+    Encode int to signed binary of defined bit width.
+    :param value: Int value to encode
+    :param bits: Bit width
+    :return:
+    """
+    if value >= 0:
+        return value
+    mask = (1 << bits) - 1
+    tmp = (abs(value) ^ mask) + 1
+    return tmp & mask
 
 def resize_to_length(array: list[int], length: int) -> list[int]:
     """Resizes the array, 0-extending the first positions,
@@ -290,7 +309,7 @@ class SpinDevice:
         The resolution is in agreement with the selected step size.
         :return: Absolute position register.
         """
-        return twos_complement(self.get_register(SpinRegister.ABS_POS), 22)
+        return decode_twos_complement(self.get_register(SpinRegister.ABS_POS), 22)
 
     @property
     def mark(self) -> int:
@@ -299,7 +318,7 @@ class SpinDevice:
         The resolution is in agreement with the selected step size.
         :return: The mark register.
         """
-        return twos_complement(self.get_register(SpinRegister.MARK), 22)
+        return decode_twos_complement(self.get_register(SpinRegister.MARK), 22)
 
     @mark.setter
     def mark(self, pos: int) -> None:
@@ -308,7 +327,7 @@ class SpinDevice:
         The resolution is in agreement with the selected step size.
         :return: The mark register.
         """
-        value = twos_complement(pos, 22)
+        value = decode_twos_complement(pos, 22)
         self.set_register(SpinRegister.MARK, value)
 
     @property
@@ -702,7 +721,7 @@ class SpinDevice:
         :return: None
         """
         with self.lock:
-            self._writeCommand(SpinCommand.GoTo, payload=position)
+            self._writeCommand(SpinCommand.GoTo, payload=encode_twos_complement(position, 22))
 
     def go_home(self) -> None:
         """
