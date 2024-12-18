@@ -668,18 +668,30 @@ class SpinDevice:
             return self._writeMultiple([0x00] * register.size)
 
     def go_until(
-        self, set_mark: bool = False, direction: SpinDirection | None = None
+        self,
+        set_mark: bool = False,
+        direction: SpinDirection | None = None,
+        speed: float = 100.0
     ) -> None:
         """
         Go until switch turn on event.
         This is used to set the home or mark positions
+        :param set_mark: Set to True to set mark instead of resetting the position register.
+        :param direction: Direction to move.
+        :param speed: Speed of the movement.
         """
+        if speed < 0.0 or speed > self.max_steps_per_second:
+            raise ValueError("Speed must be between 0.0 and max_steps_per_second")
+
         if isinstance(direction, SpinDirection):
             self.direction = direction
+
         act = SET_MARK_FLAG if set_mark else 0
         option = act | self._direction
+        _k = 2 ** -28
+        payload = int(speed / _k * self._TICK_SECONDS)
         with self.lock:
-            self._writeCommand(SpinCommand.GoUntil, option=option)
+            self._writeCommand(SpinCommand.GoUntil, option=option, payload=payload)
 
     def release_switch(
         self, set_mark: bool = False, direction: SpinDirection | None = None
