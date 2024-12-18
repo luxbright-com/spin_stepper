@@ -1,6 +1,6 @@
 [project]
 name = "spin_stepper"
-version = "0.0.6"
+version = "0.0.7"
 authors = [
     {name="Ulrik Södergren", email="ulrik.sodergren@luxbright.com"}
 ]
@@ -27,7 +27,8 @@ Homepage = "https://github.com/luxbright-com/spin_stepper"
 
 [project.optional-dependencies]
 tests = [
-    "pytest > 8.0"
+    "pytest > 8.0",
+    "pytest-timeout > 2.3"
 ]
 dev = [
     "ruff"
