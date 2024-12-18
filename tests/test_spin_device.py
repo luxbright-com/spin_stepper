@@ -21,11 +21,11 @@ def setup_motor(_motor: sp.SpinDevice):
     This is a hook for running tests with motors that can't run with default config.
     """
     _motor.set_acceleration(dec=200, acc=200)
-    _motor.set_speed_limits(min_speed=2.0, max_speed=2000.0)
+    _motor.set_speed_limits(min_speed=2.0, max_speed=500.0)
     _motor.set_micro_step(16)
     _motor.set_ocd_th(3.0)
-    _motor.set_stall_th(1.0)
-    _motor.set_kval(kval_hold=0.1, kval_acc=0.3, kval_run=0.2, kval_dec=0.3)
+    _motor.set_stall_th(1.5)
+    _motor.set_kval(kval_hold=0.05, kval_acc=0.1, kval_run=0.1, kval_dec=0.1)
 
 
 @pytest.fixture
@@ -223,6 +223,7 @@ def test_set_illegal_tep_mode(motor: sp.SpinDevice):
         motor.set_micro_step(3)
 
 
+@pytest.mark.timeout(10)
 def test_move(motor: sp.SpinDevice):
     setup_motor(motor)
     motor.move(10000, direction=sp.SpinDirection.Forward)
@@ -240,6 +241,7 @@ def test_move(motor: sp.SpinDevice):
     assert motor.abs_pos == 2000
 
 
+@pytest.mark.timeout(10)
 def test_go_to(motor: sp.SpinDevice):
     motor.go_to(10000)
     while motor.is_busy():
@@ -253,6 +255,8 @@ def test_go_to(motor: sp.SpinDevice):
         time.sleep(0.1)
     assert motor.abs_pos < 0
 
+
+@pytest.mark.timeout(10)
 def test_go_home(motor: sp.SpinDevice):
     motor.go_to(10000)
     while motor.is_busy():
@@ -265,6 +269,7 @@ def test_go_home(motor: sp.SpinDevice):
     assert motor.abs_pos == 0
 
 
+@pytest.mark.timeout(10)
 def test_go_mark(motor: sp.SpinDevice):
     motor.mark = 5000
     assert motor.mark == 5000
@@ -286,11 +291,11 @@ def test_speed(motor: sp.SpinDevice):
     motor.soft_hiz()
 
 
+@pytest.mark.timeout(10)
 def test_reset_position(motor: sp.SpinDevice):
     assert motor.abs_pos == 0
     motor.move(1000)
-    start = time.monotonic()
-    while motor.is_busy() and time.monotonic() - start < 10.0:
+    while motor.is_busy():
         time.sleep(0.1)
     assert motor.abs_pos == 1000
     motor.reset_position()
@@ -313,6 +318,7 @@ def test_hard_hiz(motor: sp.SpinDevice):
     assert sp.SpinStatus.HiZ in motor.get_status()
 
 
+@pytest.mark.timeout(10)
 def test_soft_stop(motor: sp.SpinDevice):
     setup_motor(motor)
     motor.run(2000)
@@ -320,40 +326,40 @@ def test_soft_stop(motor: sp.SpinDevice):
     motor.soft_stop()
     assert motor.is_busy() is True
     assert sp.SpinStatus.HiZ not in motor.get_status()
-    start = time.monotonic()
-    while motor.is_busy() and time.monotonic() - start < 5.0:
+    while motor.is_busy():
         time.sleep(0.1)
     assert sp.SpinStatus.HiZ not in motor.get_status()
 
 
+@pytest.mark.timeout(10)
 def test_soft_hiz(motor: sp.SpinDevice):
-    motor.run(1000)
+    motor.run(200)
     time.sleep(1.0)
     motor.soft_hiz()
     assert motor.is_busy() is True
     start = time.monotonic()
-    while motor.is_busy() and time.monotonic() - start < 2.0:
+    while motor.is_busy():
         time.sleep(0.1)
     assert sp.SpinStatus.HiZ in motor.get_status()
 
 
+@pytest.mark.timeout(30)
 def test_go_until(motor: sp.SpinDevice):
     setup_motor(motor)
     motor.move(2000)
-    start = time.monotonic()
-    while motor.is_busy() and time.monotonic() - start < 10.0:
+    while motor.is_busy():
         time.sleep(0.1)
     assert sp.SpinStatus.SwitchFlag not in motor.get_status()
 
-    motor.go_until(direction=sp.SpinDirection.Reverse)
+    motor.go_until(direction=sp.SpinDirection.Reverse, speed=200)
 
-    start = time.monotonic()
-    while motor.is_busy() and time.monotonic() - start < 10.0:
+    while motor.is_busy():
         time.sleep(0.1)
     assert sp.SpinStatus.SwitchFlag in motor.get_status()
     assert 0 <= motor.abs_pos <= 5
 
 
+@pytest.mark.timeout(60)
 def test_go_until_and_release(motor: sp.SpinDevice):
     """
     Test homing using a switch.
@@ -367,46 +373,46 @@ def test_go_until_and_release(motor: sp.SpinDevice):
     motor.move(20000)
     while motor.is_busy():
         time.sleep(0.1)
-    motor.go_until(direction=sp.SpinDirection.Reverse)
-    start = time.monotonic()
-    while motor.is_busy() and time.monotonic() - start < 10.0:
+    motor.go_until(direction=sp.SpinDirection.Reverse, speed=200)
+    while motor.is_busy():
         time.sleep(0.1)
     assert 0 <= motor.abs_pos <= 5
     time.sleep(0.1)
     assert sp.SpinStatus.SwitchFlag in motor.get_status()
 
     motor.release_switch(direction=sp.SpinDirection.Forward)
-    start = time.monotonic()
-    while motor.is_busy() and time.monotonic() - start < 10.0:
+    while motor.is_busy():
         time.sleep(0.1)
     assert motor.abs_pos < 100
 
     motor.move(10000)
     start = time.monotonic()
-    while motor.is_busy() and time.monotonic() - start < 10.0:
+    while motor.is_busy():
         time.sleep(0.1)
     time.sleep(0.1)
     assert sp.SpinStatus.SwitchFlag not in motor.get_status()
 
     motor.go_home()
-    start = time.monotonic()
-    while motor.is_busy() and time.monotonic() - start < 10.0:
+    while motor.is_busy() and time.monotonic():
         time.sleep(0.1)
     assert 0 <= motor.abs_pos <= 5
 
 
 def test_multi_thread(motor: sp.SpinDevice):
-    def loop(_motor):
+    def loop(_motor, name):
         while run:
             speed = _motor.speed
             pos = _motor.abs_pos
-            logger.info(f"loop {speed=} ({pos=})")
+            status = _motor.status
+            logger.info(f"{name} {speed=} ({pos=} {status=})")
             time.sleep(0.001)
 
     run = True
     setup_motor(motor)
-    thread = threading.Thread(target=loop, args=(motor,), daemon=True)
-    thread.start()
+    thread1 = threading.Thread(target=loop, args=(motor, 'thread_1'), daemon=True)
+    thread1.start()
+    thread2 = threading.Thread(target=loop, args=(motor, 'thread_2'), daemon=True)
+    thread2.start()
     motor.run(200, SpinDirection.Forward)
     last_pos = motor.abs_pos
     for i in range(100):
@@ -418,7 +424,8 @@ def test_multi_thread(motor: sp.SpinDevice):
         logger.info(f"for {speed=} ({pos=})")
     motor.soft_hiz()
     run = False
-    thread.join(1.0)
+    thread1.join(1.0)
+    thread2.join(1.0)
 
 
 def test_step_modes_speed(motor: sp.SpinDevice):
