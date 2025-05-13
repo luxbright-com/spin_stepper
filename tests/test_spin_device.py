@@ -442,11 +442,15 @@ def test_step_modes_speed(motor: sp.SpinDevice):
         motor.set_micro_step(step_mode)
         logger.info(f"{motor.get_micro_step()} micro steps")
         assert motor.get_micro_step() == step_mode
-        motor.run(speed)
-        time.sleep(5)
+        motor.run(speed, SpinDirection.Forward)
+        time.sleep(4)
         assert motor.speed == pytest.approx(speed, abs=20)
         motor.soft_hiz()
-        time.sleep(2)
+        motor.run(speed, SpinDirection.Reverse)
+        time.sleep(4)
+        motor.soft_hiz()
+        while motor.is_busy():
+            time.sleep(0.5)
 
 def test_step_modes_move(motor: sp.SpinDevice):
     """
@@ -456,15 +460,19 @@ def test_step_modes_move(motor: sp.SpinDevice):
     """
     setup_motor(motor)
     motor.set_speed_limits(max_speed=500)
-    distance = 1000
+    distance = 300
     step_modes = [2, 16, 128]
 
     for step_mode in step_modes:
         motor.set_micro_step(step_mode)
         logger.info(f"{motor.get_micro_step()} micro steps")
         assert motor.get_micro_step() == step_mode
-        motor.move(distance * step_mode)
+        motor.move(distance * step_mode, SpinDirection.Forward)
+        while motor.is_busy():
+            time.sleep(0.1)
+        motor.move(distance * step_mode, SpinDirection.Reverse)
         while motor.is_busy():
             time.sleep(0.1)
         motor.soft_hiz()
-        time.sleep(2)
+        while motor.is_busy():
+            time.sleep(0.1)
