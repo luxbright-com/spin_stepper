@@ -33,6 +33,7 @@ def encode_twos_complement(value: int, bits: int) -> int:
     tmp = (abs(value) ^ mask) + 1
     return tmp & mask
 
+
 def resize_to_length(array: list[int], length: int) -> list[int]:
     """Resizes the array, 0-extending the first positions,
     or truncating the first positions
@@ -285,6 +286,21 @@ class SpinDevice:
         self.lock = lock
 
         self._direction = SpinDirection.Forward.value
+
+    def get_config(self) -> int:
+        """
+        Read the 16-bit configuration register.
+        :return: The config register.
+        """
+        return self.get_register(SpinRegister.CONFIG)
+
+    def set_config(self, value: int) -> None:
+        """
+        Set the configuration register.
+        :param value: New configuration.
+        :return:
+        """
+        return self.set_register(SpinRegister.CONFIG, value)
 
     @property
     def direction(self) -> SpinDirection:
@@ -620,11 +636,44 @@ class SpinDevice:
     def set_micro_step(self, micro_step: int) -> None:
         """
         Set the low part of the STEP_MODE register.
+        Does not change the higher part of the STEP_MODE register.
         :param micro_step: Step value as 1 / value
         """
         try:
             step_value = {1: 0, 2: 1, 4: 2, 8: 3, 16: 4, 32: 5, 64: 6, 128: 7}
-            self.set_register(SpinRegister.STEP_MODE, step_value[micro_step])
+            sync_out = self.get_register(SpinRegister.STEP_MODE) & 0xF0
+            self.set_register(SpinRegister.STEP_MODE, step_value[micro_step] | sync_out)
+        except KeyError:
+            raise ValueError(
+                "Invalid micro_step value. Must be 1, 2, 4, 8, 16, 32, 64 or 128"
+            )
+
+    def get_sync_out(self) -> tuple[int, bool]:
+        """
+        Read the high part of the STEP_MODE register.
+        :return: High part of the STEP_MODE register and a flag indicating if sync out is enabled.
+        """
+        value = self.get_register(SpinRegister.STEP_MODE)
+        flag = bool(value & 0x80)
+        sync_value = (value & 0x70) >> 4
+        sync_sel = int(2**sync_value)
+        return sync_sel, flag
+
+    def set_sync_out(self, sync_sel: int, enable: bool) -> None:
+        """
+        Set the high part of the STEP_MODE register.
+        Enable/Disable sync out.
+        Does not change the lower part of the STEP_MODE register.
+        :param sync_sel: Step value as 1 / value
+        :param enable: True to enable the SYNC_OUT.
+        """
+        try:
+            step_value = {1: 0, 2: 1, 4: 2, 8: 3, 16: 4, 32: 5, 64: 6, 128: 7}
+            sync_value = step_value[sync_sel] << 4
+            enable_flag = 0x80 if enable else 0x00
+            step_mode = self.get_register(SpinRegister.STEP_MODE) & 0x07
+            value = sync_value | enable_flag | step_mode
+            self.set_register(SpinRegister.STEP_MODE, value)
         except KeyError:
             raise ValueError(
                 "Invalid micro_step value. Must be 1, 2, 4, 8, 16, 32, 64 or 128"
@@ -671,7 +720,7 @@ class SpinDevice:
         self,
         set_mark: bool = False,
         direction: SpinDirection | None = None,
-        speed: float = 100.0
+        speed: float = 100.0,
     ) -> None:
         """
         Go until switch turn on event.
@@ -688,7 +737,7 @@ class SpinDevice:
 
         act = SET_MARK_FLAG if set_mark else 0
         option = act | self._direction
-        _k = 2 ** -28
+        _k = 2**-28
         payload = int(speed / _k * self._TICK_SECONDS)
         with self.lock:
             self._writeCommand(SpinCommand.GoUntil, option=option, payload=payload)
@@ -733,7 +782,9 @@ class SpinDevice:
         :return: None
         """
         with self.lock:
-            self._writeCommand(SpinCommand.GoTo, payload=encode_twos_complement(position, 22))
+            self._writeCommand(
+                SpinCommand.GoTo, payload=encode_twos_complement(position, 22)
+            )
 
     def go_home(self) -> None:
         """
@@ -769,6 +820,20 @@ class SpinDevice:
         payload = int(speed / _k * self._TICK_SECONDS)
         with self.lock:
             self._writeCommand(SpinCommand.Run, option=self._direction, payload=payload)
+
+    def step_clock(self, direction: SpinDirection | None = None) -> None:
+        """
+        Set device in StepClock mode.
+        The device will listen for pulses at the step clock input and move one step for each pulse.
+        This can be used to move one motor synchronously to another motor.
+        :param direction: Direction to move
+        :return:
+        """
+        if isinstance(direction, SpinDirection):
+            self.direction = direction
+
+        with self.lock:
+            self._writeCommand(SpinCommand.StepClock, option=self._direction)
 
     def hard_hiz(self) -> None:
         """
