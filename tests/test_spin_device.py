@@ -426,7 +426,7 @@ def test_multi_thread(motor_1: SpinDevice):
     thread2.start()
     motor_1.run(200, SpinDirection.Forward)
     last_pos = motor_1.abs_pos
-    for i in range(100):
+    for _i in range(100):
         time.sleep(0.05)
         speed = motor_1.speed
         pos = motor_1.abs_pos

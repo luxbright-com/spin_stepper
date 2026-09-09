@@ -1,7 +1,8 @@
 import enum
 import logging
+import typing
 from threading import Lock
-from typing import Callable
+from collections.abc import Callable
 
 SET_MARK_FLAG = 0x04
 
@@ -362,14 +363,10 @@ class SpinDevice:
         :return: The min_speed, max_speed limits
         """
         min_speed = (
-            self.get_register(SpinRegister.MIN_SPEED)
-            * self._MIN_SPEED_K
-            / self._TICK_SECONDS
+            self.get_register(SpinRegister.MIN_SPEED) * self._MIN_SPEED_K / self._TICK_SECONDS
         )
         max_speed = (
-            self.get_register(SpinRegister.MAX_SPEED)
-            * self._MAX_SPEED_K
-            / self._TICK_SECONDS
+            self.get_register(SpinRegister.MAX_SPEED) * self._MAX_SPEED_K / self._TICK_SECONDS
         )
         return min_speed, max_speed
 
@@ -402,28 +399,23 @@ class SpinDevice:
         acc = self.get_register(SpinRegister.ACC) * self._ACC_K / self._TICK_SECONDS**2
         return dec, acc
 
-    def set_acceleration(
-        self, dec: float | None = None, acc: float | None = None
-    ) -> None:
+    def set_acceleration(self, dec: float | None = None, acc: float | None = None) -> None:
         """
         Set the deceleration and acceleration of the device in steps/s2.
         :param dec: Deceleration in steps/s2
         :param acc: Acceleration in steps/s2
         """
         if dec:
-            self.set_register(
-                SpinRegister.DEC, int(dec * self._TICK_SECONDS**2 / self._ACC_K)
-            )
+            self.set_register(SpinRegister.DEC, int(dec * self._TICK_SECONDS**2 / self._ACC_K))
         if acc:
-            self.set_register(
-                SpinRegister.ACC, int(acc * self._TICK_SECONDS**2 / self._ACC_K)
-            )
+            self.set_register(SpinRegister.ACC, int(acc * self._TICK_SECONDS**2 / self._ACC_K))
 
     def get_fs_spd(self) -> float:
         """
         Read the FS_SPD register.
         The FS_SPD register contains the threshold speed.
-        When the actual speed exceeds this value, the step mode is automatically switched to full-step two-phase on.
+        When the actual speed exceeds this value, the step mode is automatically switched to
+        full-step two-phase on.
         Its value is expressed in step/tick.
         :return: FS_SPD
         """
@@ -437,7 +429,8 @@ class SpinDevice:
         """
         Set the FS_SPD register.
         The FS_SPD register contains the threshold speed.
-        When the actual speed exceeds this value, the step mode is automatically switched to full-step two-phase on.
+        When the actual speed exceeds this value, the step mode is automatically switched to
+        full-step two-phase on.
         Its value is expressed in step/tick.
         :return: None
         """
@@ -504,7 +497,8 @@ class SpinDevice:
         acceleration and deceleration.
 
         The INT_SPEED register contains the speed value at which the BEMF compensation curve changes slope.
-        The ST_SLP register contains the BEMF compensation curve slope used when the speed is lower than the INT_SPEED.
+        The ST_SLP register contains the BEMF compensation curve slope used when the speed is lower than
+        the INT_SPEED.
         The FN_SLP_ACC register contains the BEMF compensation curve slope used when the speed is greater than
         the INT_SPEED during acceleration.
         The FN_SLP_DEC register contains the BEMF compensation curve slope used when
@@ -513,9 +507,7 @@ class SpinDevice:
         """
         _speed_k = 2**-26
         _slope_k = 0.0015
-        int_speed = (
-            self.get_register(SpinRegister.INT_SPEED) * _speed_k / self._TICK_SECONDS
-        )
+        int_speed = self.get_register(SpinRegister.INT_SPEED) * _speed_k / self._TICK_SECONDS
         st_slp = self.get_register(SpinRegister.ST_SLP) * _slope_k
         fn_slp_acc = self.get_register(SpinRegister.FN_SLP_ACC) * _slope_k
         fn_slp_dec = self.get_register(SpinRegister.FN_SLP_DEC) * _slope_k
@@ -559,7 +551,8 @@ class SpinDevice:
 
     def get_k_therm(self) -> float:
         """
-        The K_THERM register contains the value used by the winding resistance thermal drift compensation system.
+        The K_THERM register contains the value used by the winding resistance
+        thermal drift compensation system.
         :return: K_THERM
         """
         _k = 0.03125
@@ -567,7 +560,8 @@ class SpinDevice:
 
     def set_k_therm(self, k_therm: float) -> None:
         """
-        The K_THERM register contains the value used by the winding resistance thermal drift compensation system.
+        The K_THERM register contains the value used by the winding resistance
+        thermal drift compensation system.
         :return: None
         """
         _k = 0.03125
@@ -643,10 +637,8 @@ class SpinDevice:
             step_value = {1: 0, 2: 1, 4: 2, 8: 3, 16: 4, 32: 5, 64: 6, 128: 7}
             sync_out = self.get_register(SpinRegister.STEP_MODE) & 0xF0
             self.set_register(SpinRegister.STEP_MODE, step_value[micro_step] | sync_out)
-        except KeyError:
-            raise ValueError(
-                "Invalid micro_step value. Must be 1, 2, 4, 8, 16, 32, 64 or 128"
-            )
+        except KeyError as e:
+            raise ValueError("Invalid micro_step value. Must be 1, 2, 4, 8, 16, 32, 64 or 128") from e
 
     def get_sync_out(self) -> tuple[int, bool]:
         """
@@ -674,10 +666,8 @@ class SpinDevice:
             step_mode = self.get_register(SpinRegister.STEP_MODE) & 0x07
             value = sync_value | enable_flag | step_mode
             self.set_register(SpinRegister.STEP_MODE, value)
-        except KeyError:
-            raise ValueError(
-                "Invalid micro_step value. Must be 1, 2, 4, 8, 16, 32, 64 or 128"
-            )
+        except KeyError as e:
+            raise ValueError("Invalid micro_step value. Must be 1, 2, 4, 8, 16, 32, 64 or 128") from e
 
     def reset_position(self) -> None:
         """
@@ -777,20 +767,20 @@ class SpinDevice:
         The ABS_POS value is always in agreement with the selected step mode;
         the parameter value unit is equal to the selected step mode (full, half, quarter, etc.).
         The GoTo command keeps the BUSY flag low until the target position is reached.
-        This command can be given only when the previous motion command has been completed (BUSY flag released).
+        This command can be given only when the previous motion command has been completed
+        (BUSY flag released).
         :param position: Absolute position relative to ABS_POS
         :return: None
         """
         with self.lock:
-            self._writeCommand(
-                SpinCommand.GoTo, payload=encode_twos_complement(position, 22)
-            )
+            self._writeCommand(SpinCommand.GoTo, payload=encode_twos_complement(position, 22))
 
     def go_home(self) -> None:
         """
         The GoHome command produces a motion to the HOME position (zero position) via the shortest path.
         Note that this command is equivalent to the “GoTo(0…0)” command.
-        This command can be given only when the previous motion command has been completed (BUSY flag released).
+        This command can be given only when the previous motion command has been completed
+        (BUSY flag released).
         :return: None
         """
         with self.lock:
@@ -911,7 +901,7 @@ class SpinDevice:
 
         return response[self._position]
 
-    def _writeMultiple(self, data: list[int]) -> int:
+    def _writeMultiple(self, data: list[int]) -> int:  # noqa: N802
         """
         Write each byte in a list to device.
         Used to combine calls to _write.
@@ -922,12 +912,13 @@ class SpinDevice:
         response = [self._write(data_byte) for data_byte in data]
         return to_int(response)
 
+    @typing.override
     def _writeCommand(
         self,
         command: SpinCommand,
         option: int | None = None,
         payload: int | None = None,
-    ) -> int:
+    ) -> int: #noqa N802
         """Write command to device with payload (if any)
 
         :command: Command to write
