@@ -1,4 +1,4 @@
-from typing import Callable, List
+from collections.abc import Callable
 from .spin_device import SpinDevice
 from threading import Lock
 
@@ -10,7 +10,7 @@ class SpinChain:
         self,
         total_devices: int,
         spi_select: tuple[int, int] | None = None,
-        spi_transfer: Callable[[List[int]], List[int]] | None = None,
+        spi_transfer: Callable[[list[int]], list[int]] | None = None,
     ) -> None:
         """
         If different from hardware SPI CS pin
