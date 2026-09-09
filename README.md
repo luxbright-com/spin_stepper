@@ -21,3 +21,18 @@ But it has been re-worked from the ground up to be more pythonic and to handle m
 Our purpose with this library was to solve our internal needs.
 We use this for internally developed lab and production equipment.
 We have no affiliation with STMicroelectronics.
+
+## Development
+
+This project uses [Ruff](https://docs.astral.sh/ruff/) for linting and formatting, run
+automatically as a [pre-commit](https://pre-commit.com/) hook.
+
+To set it up, install the dev dependencies and enable the git hook:
+
+    pip install -e ".[dev]"
+    pre-commit install
+
+Ruff will then check and format the staged files on every commit. You can also run the
+hooks manually against all files:
+
+    pre-commit run --all-files

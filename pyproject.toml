@@ -31,7 +31,8 @@ tests = [
     "pytest-timeout > 2.3"
 ]
 dev = [
-    "ruff"
+    "ruff",
+    "pre-commit"
 ]
 
 [build-system]
